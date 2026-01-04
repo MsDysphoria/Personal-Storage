@@ -1,1 +1,1 @@
-Art experimentation unrelated to development
+Seamless audio player experimentation
