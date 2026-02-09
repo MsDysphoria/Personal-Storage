@@ -13,13 +13,14 @@
       background:transparent;
     }
 
-    /* container stays transparent */
     #pinkviz{
-      width:100%;
-      height:100%;
       position:relative;
+      width:100vw;
+      height:100%;
+      left:50%;
+      margin-left:-50vw;
       overflow:hidden;
-      background:transparent;   /* ✅ removed background */
+      background:transparent;
     }
 
     #pinkviz canvas{
@@ -87,7 +88,6 @@
       ctx.save();
       ctx.globalCompositeOperation="lighter";
 
-      /* glowing ribbons */
       const mid=H*0.55;
       const amp=H*(0.10+0.18*energy);
 
@@ -116,7 +116,6 @@
         ctx.stroke();
       }
 
-      /* bars */
       const padX=18*dpr(), padY=22*dpr();
       const usableW=W-padX*2;
       const baseY=H-padY;
