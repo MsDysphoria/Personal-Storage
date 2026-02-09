@@ -11,6 +11,7 @@
       height:100%;
       margin:0;
       background:transparent;
+      overflow:hidden;
     }
 
     #pinkviz{
@@ -39,7 +40,7 @@
   (() => {
     const host = document.getElementById("pinkviz");
     const c = document.createElement("canvas");
-    const ctx = c.getContext("2d");
+    const ctx = c.getContext("2d", { alpha:true, desynchronized:true });
     host.appendChild(c);
 
     const P1 = [255,111,174];
@@ -47,12 +48,14 @@
 
     const lerp=(a,b,t)=>a+(b-a)*t;
     const clamp=(v,a,b)=>Math.max(a,Math.min(b,v));
+    const rnd=(a,b)=>a+Math.random()*(b-a);
+    const irnd=(a,b)=>Math.floor(rnd(a,b));
     const dpr=()=>Math.max(1,Math.min(2,window.devicePixelRatio||1));
 
     function resize(){
       const r=host.getBoundingClientRect();
-      c.width=Math.floor(r.width*dpr());
-      c.height=Math.floor(r.height*dpr());
+      c.width=Math.max(2,Math.floor(r.width*dpr()));
+      c.height=Math.max(2,Math.floor(r.height*dpr()));
     }
     resize();
     new ResizeObserver(resize).observe(host);
@@ -70,13 +73,31 @@
 
     let energy=0, target=0, t0=performance.now();
 
+    let glitchHold = 0;
+    let glitchT = 0;
+    let timeWarp = 1;
+    let warpTarget = 1;
+
     function rgba(rgb,a){
       return `rgba(${rgb[0]},${rgb[1]},${rgb[2]},${a})`;
     }
 
     function tick(now){
-      const dt=Math.min(0.04,(now-t0)/1000);
+      const rawDt=Math.min(0.04,(now-t0)/1000);
       t0=now;
+
+      if(glitchHold<=0 && Math.random()<0.018){
+        glitchHold = rnd(0.10,0.30);
+        glitchT = rnd(0.6,1.4);
+        warpTarget = rnd(0.55,1.6);
+      }else{
+        glitchHold = Math.max(0, glitchHold - rawDt);
+        glitchT = Math.max(0, glitchT - rawDt*1.2);
+        if(glitchHold===0) warpTarget = 1;
+      }
+
+      timeWarp = lerp(timeWarp, warpTarget, 0.06);
+      const dt = rawDt * timeWarp;
 
       const wander=0.55+0.45*Math.sin(now/1400)*Math.sin(now/2100);
       target=clamp(wander+(Math.random()-0.5)*0.08,0.10,1.0);
@@ -95,15 +116,21 @@
         const kk=k/2;
         const col=kk<0.5?P1:P2;
         ctx.beginPath();
-        const ph=now/900+kk*1.6;
-        const freq=2.2+kk*1.8;
+        const ph=now/900+kk*1.6 + (glitchHold>0?Math.sin(now/35)*0.3:0);
+        const freq=2.2+kk*1.8 + (glitchHold>0?0.6:0);
 
         for(let x=0;x<=W;x+=6*dpr()){
           const u=x/W;
+          const tear =
+            (glitchHold>0)
+              ? (Math.sin(u*40 + now/33) * (H*0.003 + H*0.010*energy) + (Math.random()-0.5)*H*0.0015)
+              : 0;
+
           const y=
             mid
             + Math.sin(u*Math.PI*freq+ph)*amp
-            + Math.sin(u*Math.PI*(freq*0.6)-ph*1.3)*amp*0.45*(0.35+0.65*energy);
+            + Math.sin(u*Math.PI*(freq*0.6)-ph*1.3)*amp*0.45*(0.35+0.65*energy)
+            + tear;
 
           if(x===0) ctx.moveTo(x,y);
           else ctx.lineTo(x,y);
@@ -123,16 +150,22 @@
 
       for(let i=0;i<bins;i++){
         const u=i/(bins-1);
-        const ph=phase[i]+now/600*speed[i];
+        const ph=phase[i]+(now/600)*speed[i]*timeWarp;
         const wob=0.55+0.45*Math.sin(ph);
         const fall=Math.sin(u*Math.PI);
 
-        const h=(H*(0.10+0.42*energy))*
+        const stomp = (glitchHold>0 ? 1.25 : 1);
+
+        const h=(H*(0.10+0.42*energy*stomp))*
           (base[i]+0.65*wob)*(0.35+0.65*fall);
 
         const x=padX+i*barW+barW*0.15;
         const w=barW*0.70;
-        const y=baseY-h;
+        let y=baseY-h;
+
+        if(glitchHold>0 && Math.random()<0.14){
+          y += (Math.random()<0.5?-1:1) * rnd(0, H*0.05) * (0.35+0.65*energy);
+        }
 
         const mix=u;
         const col=[
@@ -154,6 +187,26 @@
         ctx.arcTo(x,y,x+r,y,r);
         ctx.closePath();
         ctx.fill();
+      }
+
+      if(glitchHold>0){
+        const slices = irnd(5, 12);
+        for(let s=0;s<slices;s++){
+          const sh = irnd(6, Math.max(10, H*0.08));
+          const sy = irnd(0, H-sh);
+          const dx = irnd(-W*0.03, W*0.03);
+          const sx = irnd(0, W*0.02);
+          ctx.drawImage(c, sx, sy, W - sx, sh, dx, sy, W - sx, sh);
+        }
+
+        ctx.save();
+        ctx.globalCompositeOperation="overlay";
+        ctx.fillStyle = "rgba(0,0,0,1)";
+        for(let y=0; y<H; y+=Math.max(2, Math.floor(3*dpr()))){
+          ctx.globalAlpha = (0.06 + 0.10*Math.random()) * (0.3 + 0.7*energy);
+          ctx.fillRect(0, y, W, 1*dpr());
+        }
+        ctx.restore();
       }
 
       ctx.restore();
