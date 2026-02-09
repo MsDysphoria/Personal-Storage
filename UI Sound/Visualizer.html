@@ -1,276 +1,145 @@
-{\rtf1\ansi\ansicpg1252\deff0\nouicompat\deflang1033{\fonttbl{\f0\fnil\fcharset0 Calibri;}}
-{\*\generator Riched20 10.0.19041}\viewkind4\uc1 
-\pard\sa200\sl276\slmult1\f0\fs22\lang31 <div id="pinkviz"></div>\par
-\par
-<style>\par
-  #pinkviz\{\par
-    --pink:#ff6fae;\par
-    --pink2:#ff2e93;\par
-    --bg:#07070b;\par
-\par
-    width:min(820px, 92vw);\par
-    height:min(220px, 28vh);\par
-    margin: 18px auto;\par
-    border-radius: 18px;\par
-    position: relative;\par
-    overflow: hidden;\par
-\par
-    background:\par
-      radial-gradient(120% 140% at 15% 35%, rgba(255,111,174,0.25), transparent 55%),\par
-      radial-gradient(120% 140% at 85% 65%, rgba(255,46,147,0.20), transparent 60%),\par
-      linear-gradient(180deg, rgba(255,255,255,0.03), transparent 35%),\par
-      var(--bg);\par
-\par
-    box-shadow:\par
-      0 0 0 1px rgba(255,111,174,0.22) inset,\par
-      0 18px 60px rgba(0,0,0,0.55);\par
-  \}\par
-\par
-  /* subtle grain (no image assets) */\par
-  #pinkviz::before\{\par
-    content:"";\par
-    position:absolute; inset:-30%;\par
-    background:\par
-      repeating-linear-gradient(\par
-        0deg,\par
-        rgba(255,255,255,0.03) 0px,\par
-        rgba(255,255,255,0.03) 1px,\par
-        rgba(0,0,0,0) 3px,\par
-        rgba(0,0,0,0) 6px\par
-      );\par
-    opacity: 0.18;\par
-    transform: rotate(8deg);\par
-    mix-blend-mode: overlay;\par
-    pointer-events:none;\par
-  \}\par
-\par
-  #pinkviz::after\{\par
-    content:"";\par
-    position:absolute; inset:0;\par
-    background: radial-gradient(80% 90% at 50% 50%, transparent 40%, rgba(0,0,0,0.65) 100%);\par
-    pointer-events:none;\par
-  \}\par
-\par
-  #pinkviz canvas\{\par
-    position:absolute; inset:0;\par
-    width:100%; height:100%;\par
-    display:block;\par
-  \}\par
-\par
-  #pinkviz .pv-label\{\par
-    position:absolute;\par
-    left:14px; bottom:12px;\par
-    font: 600 12px/1 system-ui, sans-serif;\par
-    letter-spacing: 0.08em;\par
-    text-transform: uppercase;\par
-    color: rgba(255,255,255,0.72);\par
-    text-shadow: 0 6px 18px rgba(0,0,0,0.6);\par
-    pointer-events:none;\par
-    user-select:none;\par
-  \}\par
-  #pinkviz .pv-dot\{\par
-    display:inline-block;\par
-    width:8px; height:8px;\par
-    border-radius:99px;\par
-    margin-right:8px;\par
-    background: rgba(255,111,174,0.9);\par
-    box-shadow: 0 0 18px rgba(255,111,174,0.7);\par
-    vertical-align: -1px;\par
-  \}\par
-</style>\par
-\par
-<script>\par
-(() => \{\par
-  const host = document.getElementById("pinkviz");\par
-  if (!host) return;\par
-\par
-  const c = document.createElement("canvas");\par
-  const ctx = c.getContext("2d", \{ alpha: true \});\par
-  host.appendChild(c);\par
-\par
-  const label = document.createElement("div");\par
-  label.className = "pv-label";\par
-  label.innerHTML = `<span class="pv-dot"></span> SIGNAL`;\par
-  host.appendChild(label);\par
-\par
-  const dpr = () => Math.max(1, Math.min(2, window.devicePixelRatio || 1));\par
-  function resize() \{\par
-    const r = host.getBoundingClientRect();\par
-    c.width = Math.floor(r.width * dpr());\par
-    c.height = Math.floor(r.height * dpr());\par
-  \}\par
-  resize();\par
-  new ResizeObserver(resize).observe(host);\par
-\par
-  const PINK = [255, 111, 174];\par
-  const PINK2 = [255, 46, 147];\par
-\par
-  const lerp = (a,b,t)=>a+(b-a)*t;\par
-  const clamp = (v,a,b)=>Math.max(a,Math.min(b,v));\par
-  const rnd = (a,b)=>a+Math.random()*(b-a);\par
-\par
-  let t0 = performance.now();\par
-  let energy = 0.0;\par
-  let targetEnergy = 0.0;\par
-\par
-  const bins = 64;\par
-  const binPhase = new Float32Array(bins);\par
-  const binSpeed = new Float32Array(bins);\par
-  const binBase = new Float32Array(bins);\par
-  for (let i=0;i<bins;i++)\{\par
-    binPhase[i] = rnd(0, Math.PI*2);\par
-    binSpeed[i] = rnd(0.8, 2.2) * (0.6 + i/bins);\par
-    binBase[i] = rnd(0.10, 0.55);\par
-  \}\par
-\par
-  const particles = Array.from(\{length: 26\}, () => (\{\par
-    x: Math.random(),\par
-    y: Math.random(),\par
-    r: rnd(0.006, 0.018),\par
-    vx: rnd(-0.02, 0.02),\par
-    vy: rnd(-0.01, 0.01),\par
-    p: rnd(0, Math.PI*2)\par
-  \}));\par
-\par
-  function rgba(rgb, a)\{ return `rgba($\{rgb[0]\},$\{rgb[1]\},$\{rgb[2]\},$\{a\})`; \}\par
-\par
-  function tick(now)\{\par
-    const dt = Math.min(0.04, (now - t0) / 1000);\par
-    t0 = now;\par
-\par
-    const wander = 0.55 + 0.45*Math.sin(now/1400) * Math.sin(now/2100);\par
-    const jitter = (Math.random() - 0.5) * 0.08;\par
-    targetEnergy = clamp(wander + jitter, 0.10, 1.00);\par
-\par
-    energy = lerp(energy, targetEnergy, 0.06);\par
-\par
-    const W = c.width, H = c.height;\par
-    ctx.clearRect(0,0,W,H);\par
-\par
-    ctx.save();\par
-    ctx.globalCompositeOperation = "lighter";\par
-\par
-    const mid = H * 0.55;\par
-    const amp = H * (0.10 + 0.18*energy);\par
-    const nWaves = 3;\par
-\par
-    for (let k=0;k<nWaves;k++)\{\par
-      const kk = k/(nWaves-1 || 1);\par
-      const col = kk < 0.5 ? PINK : PINK2;\par
-      ctx.beginPath();\par
-      const phase = now/900 + kk*1.6;\par
-      const freq = 2.2 + kk*1.8;\par
-      const wobble = 0.35 + 0.55*energy;\par
-\par
-      for (let x=0; x<=W; x+=6*dpr())\{\par
-        const u = x/W;\par
-        const y =\par
-          mid\par
-          + Math.sin(u*Math.PI*freq + phase) * amp\par
-          + Math.sin(u*Math.PI*(freq*0.6) - phase*1.3) * amp*0.5*wobble\par
-          + Math.sin(u*Math.PI*(freq*1.7) + phase*0.7) * amp*0.18*wobble;\par
-\par
-        if (x===0) ctx.moveTo(x,y); else ctx.lineTo(x,y);\par
-      \}\par
-\par
-      ctx.lineWidth = (10 + 8*energy) * dpr();\par
-      ctx.strokeStyle = rgba(col, 0.10);\par
-      ctx.shadowColor = rgba(col, 0.55);\par
-      ctx.shadowBlur = (22 + 30*energy) * dpr();\par
-      ctx.stroke();\par
-    \}\par
-\par
-    // Bars (fake spectrum)\par
-    const padX = 18 * dpr();\par
-    const padY = 22 * dpr();\par
-    const usableW = W - padX*2;\par
-    const baseY = H - padY;\par
-    const barW = usableW / bins;\par
-\par
-    for (let i=0;i<bins;i++)\{\par
-      const u = i/(bins-1);\par
-      const phase = binPhase[i] + now/600 * binSpeed[i];\par
-      const wob = 0.55 + 0.45*Math.sin(phase);\par
-      const falloff = Math.sin(u*Math.PI); \par
-      const h = (H * (0.10 + 0.42*energy)) * (binBase[i] + 0.65*wob) * (0.35 + 0.65*falloff);\par
-\par
-      const x = padX + i*barW + barW*0.15;\par
-      const w = barW*0.70;\par
-      const y = baseY - h;\par
-\par
-      \par
-      const mix = u;\par
-      const col = [\par
-        Math.round(lerp(PINK[0], PINK2[0], mix)),\par
-        Math.round(lerp(PINK[1], PINK2[1], mix)),\par
-        Math.round(lerp(PINK[2], PINK2[2], mix)),\par
-      ];\par
-\par
-      const radius = Math.min(10*dpr(), w/2);\par
-      ctx.shadowColor = rgba(col, 0.55);\par
-      ctx.shadowBlur = (16 + 22*energy) * dpr();\par
-      ctx.fillStyle = rgba(col, 0.16 + 0.10*energy);\par
-\par
-      ctx.beginPath();\par
-      const r = radius;\par
-      ctx.moveTo(x+r, y);\par
-      ctx.arcTo(x+w, y, x+w, y+r, r);\par
-      ctx.arcTo(x+w, baseY, x+w-r, baseY, r);\par
-      ctx.arcTo(x, baseY, x, baseY-r, r);\par
-      ctx.arcTo(x, y, x+r, y, r);\par
-      ctx.closePath();\par
-      ctx.fill();\par
-      ctx.shadowBlur = 0;\par
-      ctx.strokeStyle = rgba(col, 0.16);\par
-      ctx.lineWidth = 1 * dpr();\par
-      ctx.stroke();\par
-    \}\par
-    for (const p of particles)\{\par
-      p.p += dt * (0.7 + 1.2*energy);\par
-      p.x += p.vx * dt;\par
-      p.y += p.vy * dt + Math.sin(p.p)*0.002;\par
-\par
-      if (p.x < -0.1) p.x = 1.1;\par
-      if (p.x > 1.1) p.x = -0.1;\par
-      if (p.y < -0.1) p.y = 1.1;\par
-      if (p.y > 1.1) p.y = -0.1;\par
-\par
-      const px = p.x * W;\par
-      const py = p.y * H;\par
-      const rr = p.r * Math.min(W,H) * (0.75 + 0.6*energy);\par
-\par
-      const mix = clamp(p.x, 0, 1);\par
-      const col = [\par
-        Math.round(lerp(PINK[0], PINK2[0], mix)),\par
-        Math.round(lerp(PINK[1], PINK2[1], mix)),\par
-        Math.round(lerp(PINK[2], PINK2[2], mix)),\par
-      ];\par
-\par
-      const g = ctx.createRadialGradient(px, py, 0, px, py, rr);\par
-      g.addColorStop(0, rgba(col, 0.18 + 0.14*energy));\par
-      g.addColorStop(1, rgba(col, 0));\par
-      ctx.fillStyle = g;\par
-      ctx.beginPath();\par
-      ctx.arc(px, py, rr, 0, Math.PI*2);\par
-      ctx.fill();\par
-    \}\par
-\par
-    ctx.restore();\par
-    ctx.save();\par
-    ctx.globalCompositeOperation = "overlay";\par
-    ctx.globalAlpha = 0.10;\par
-    ctx.translate(0, (now/60) % (6*dpr()));\par
-    ctx.fillStyle = "rgba(255,255,255,0.12)";\par
-    for (let y=0; y<H; y += 6*dpr())\{\par
-      ctx.fillRect(0, y, W, 1*dpr());\par
-    \}\par
-    ctx.restore();\par
-\par
-    requestAnimationFrame(tick);\par
-  \}\par
-\par
-  requestAnimationFrame(tick);\par
-\})();\par
-</script>\par
-}
- 
+<!doctype html>
+<html lang="en">
+<head>
+  <meta charset="utf-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1" />
+  <title>Visualizer</title>
+  <style>
+    :root{ --pink:#ff6fae; --pink2:#ff2e93; --bg:#07070b; }
+    html,body{ height:100%; margin:0; background:transparent; }
+    #pinkviz{
+      width:100%;
+      height:100%;
+      border-radius:18px;
+      position:relative;
+      overflow:hidden;
+      background:
+        radial-gradient(120% 140% at 15% 35%, rgba(255,111,174,0.25), transparent 55%),
+        radial-gradient(120% 140% at 85% 65%, rgba(255,46,147,0.20), transparent 60%),
+        linear-gradient(180deg, rgba(255,255,255,0.03), transparent 35%),
+        var(--bg);
+      box-shadow: 0 0 0 1px rgba(255,111,174,0.22) inset;
+    }
+    #pinkviz canvas{ position:absolute; inset:0; width:100%; height:100%; display:block; }
+  </style>
+</head>
+<body>
+  <div id="pinkviz"></div>
+
+  <script>
+  (() => {
+    const host = document.getElementById("pinkviz");
+    const c = document.createElement("canvas");
+    const ctx = c.getContext("2d");
+    host.appendChild(c);
+
+    const P1 = [255,111,174], P2=[255,46,147];
+    const lerp=(a,b,t)=>a+(b-a)*t;
+    const clamp=(v,a,b)=>Math.max(a,Math.min(b,v));
+    const dpr=()=>Math.max(1,Math.min(2,window.devicePixelRatio||1));
+
+    function resize(){
+      const r=host.getBoundingClientRect();
+      c.width=Math.floor(r.width*dpr());
+      c.height=Math.floor(r.height*dpr());
+    }
+    resize();
+    new ResizeObserver(resize).observe(host);
+
+    const bins=64;
+    const phase=new Float32Array(bins);
+    const speed=new Float32Array(bins);
+    const base=new Float32Array(bins);
+    for(let i=0;i<bins;i++){
+      phase[i]=Math.random()*Math.PI*2;
+      speed[i]=(0.8+Math.random()*1.6)*(0.6+i/bins);
+      base[i]=0.10+Math.random()*0.45;
+    }
+
+    let energy=0, target=0, t0=performance.now();
+
+    function rgba(rgb,a){ return `rgba(${rgb[0]},${rgb[1]},${rgb[2]},${a})`; }
+
+    function tick(now){
+      const dt=Math.min(0.04,(now-t0)/1000); t0=now;
+
+      const wander=0.55+0.45*Math.sin(now/1400)*Math.sin(now/2100);
+      target=clamp(wander+(Math.random()-0.5)*0.08,0.10,1.0);
+      energy=lerp(energy,target,0.06);
+
+      const W=c.width,H=c.height;
+      ctx.clearRect(0,0,W,H);
+
+      ctx.save();
+      ctx.globalCompositeOperation="lighter";
+
+      // ribbon
+      const mid=H*0.55;
+      const amp=H*(0.10+0.18*energy);
+      for(let k=0;k<3;k++){
+        const kk=k/2;
+        const col=kk<0.5?P1:P2;
+        ctx.beginPath();
+        const ph=now/900+kk*1.6;
+        const freq=2.2+kk*1.8;
+        for(let x=0;x<=W;x+=6*dpr()){
+          const u=x/W;
+          const y=mid
+            + Math.sin(u*Math.PI*freq+ph)*amp
+            + Math.sin(u*Math.PI*(freq*0.6)-ph*1.3)*amp*0.45*(0.35+0.65*energy);
+          if(x===0) ctx.moveTo(x,y); else ctx.lineTo(x,y);
+        }
+        ctx.lineWidth=(10+8*energy)*dpr();
+        ctx.strokeStyle=rgba(col,0.10);
+        ctx.shadowColor=rgba(col,0.55);
+        ctx.shadowBlur=(22+30*energy)*dpr();
+        ctx.stroke();
+      }
+
+      // bars
+      const padX=18*dpr(), padY=22*dpr();
+      const usableW=W-padX*2;
+      const baseY=H-padY;
+      const barW=usableW/bins;
+
+      for(let i=0;i<bins;i++){
+        const u=i/(bins-1);
+        const ph=phase[i]+now/600*speed[i];
+        const wob=0.55+0.45*Math.sin(ph);
+        const fall=Math.sin(u*Math.PI);
+        const h=(H*(0.10+0.42*energy))*(base[i]+0.65*wob)*(0.35+0.65*fall);
+
+        const x=padX+i*barW+barW*0.15;
+        const w=barW*0.70;
+        const y=baseY-h;
+
+        const mix=u;
+        const col=[
+          Math.round(lerp(P1[0],P2[0],mix)),
+          Math.round(lerp(P1[1],P2[1],mix)),
+          Math.round(lerp(P1[2],P2[2],mix)),
+        ];
+
+        const r=Math.min(10*dpr(),w/2);
+        ctx.shadowColor=rgba(col,0.55);
+        ctx.shadowBlur=(16+22*energy)*dpr();
+        ctx.fillStyle=rgba(col,0.18+0.10*energy);
+
+        ctx.beginPath();
+        ctx.moveTo(x+r,y);
+        ctx.arcTo(x+w,y,x+w,y+r,r);
+        ctx.arcTo(x+w,baseY,x+w-r,baseY,r);
+        ctx.arcTo(x,baseY,x,baseY-r,r);
+        ctx.arcTo(x,y,x+r,y,r);
+        ctx.closePath();
+        ctx.fill();
+      }
+
+      ctx.restore();
+      requestAnimationFrame(tick);
+    }
+    requestAnimationFrame(tick);
+  })();
+  </script>
+</body>
+</html>
