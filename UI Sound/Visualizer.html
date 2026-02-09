@@ -97,13 +97,15 @@
       }
 
       timeWarp = lerp(timeWarp, warpTarget, 0.06);
-      const dt = rawDt * timeWarp;
+      const dt = rawDt * timeWarp; // (kept for future tweaks)
 
       const wander=0.55+0.45*Math.sin(now/1400)*Math.sin(now/2100);
       target=clamp(wander+(Math.random()-0.5)*0.08,0.10,1.0);
       energy=lerp(energy,target,0.06);
 
       const W=c.width,H=c.height;
+
+      // IMPORTANT: keep canvas truly transparent each frame
       ctx.clearRect(0,0,W,H);
 
       ctx.save();
@@ -112,6 +114,7 @@
       const mid=H*0.55;
       const amp=H*(0.10+0.18*energy);
 
+      // Soft neon waves
       for(let k=0;k<3;k++){
         const kk=k/2;
         const col=kk<0.5?P1:P2;
@@ -143,6 +146,7 @@
         ctx.stroke();
       }
 
+      // Bars
       const padX=18*dpr(), padY=22*dpr();
       const usableW=W-padX*2;
       const baseY=H-padY;
@@ -189,7 +193,9 @@
         ctx.fill();
       }
 
+      // Glitch pass (TRANSPARENCY-SAFE)
       if(glitchHold>0){
+        // Slice / shift (keeps alpha; doesn't force a backdrop)
         const slices = irnd(5, 12);
         for(let s=0;s<slices;s++){
           const sh = irnd(6, Math.max(10, H*0.08));
@@ -199,12 +205,28 @@
           ctx.drawImage(c, sx, sy, W - sx, sh, dx, sy, W - sx, sh);
         }
 
+        // Scanline noise WITHOUT black background:
+        // Use a pink-tinted "lighter" pass instead of overlay+black.
         ctx.save();
-        ctx.globalCompositeOperation="overlay";
-        ctx.fillStyle = "rgba(0,0,0,1)";
-        for(let y=0; y<H; y+=Math.max(2, Math.floor(3*dpr()))){
-          ctx.globalAlpha = (0.06 + 0.10*Math.random()) * (0.3 + 0.7*energy);
+        ctx.globalCompositeOperation="lighter";
+
+        const step = Math.max(2, Math.floor(3*dpr()));
+        for(let y=0; y<H; y+=step){
+          const col = (Math.random()<0.5) ? P1 : P2;
+          ctx.globalAlpha = (0.03 + 0.07*Math.random()) * (0.25 + 0.75*energy);
+          ctx.fillStyle = rgba(col, 1);
           ctx.fillRect(0, y, W, 1*dpr());
+        }
+        ctx.restore();
+
+        // Optional: add tiny alpha-cut tears for extra VHS bite (still safe)
+        ctx.save();
+        ctx.globalCompositeOperation = "destination-out";
+        for(let y=0; y<H; y+=Math.max(3, Math.floor(6*dpr()))){
+          if(Math.random()<0.08){
+            ctx.globalAlpha = (0.02 + 0.06*Math.random()) * (0.3 + 0.7*energy);
+            ctx.fillRect(0, y, W, 1*dpr());
+          }
         }
         ctx.restore();
       }
