@@ -205,19 +205,18 @@
           ctx.drawImage(c, sx, sy, W - sx, sh, dx, sy, W - sx, sh);
         }
 
-        // Scanline noise WITHOUT black background:
-        // Use a pink-tinted "lighter" pass instead of overlay+black.
-        ctx.save();
-        ctx.globalCompositeOperation="lighter";
+ctx.save();
+ctx.globalCompositeOperation = "source-atop"; // only where something already exists
 
-        const step = Math.max(2, Math.floor(3*dpr()));
-        for(let y=0; y<H; y+=step){
-          const col = (Math.random()<0.5) ? P1 : P2;
-          ctx.globalAlpha = (0.03 + 0.07*Math.random()) * (0.25 + 0.75*energy);
-          ctx.fillStyle = rgba(col, 1);
-          ctx.fillRect(0, y, W, 1*dpr());
-        }
-        ctx.restore();
+const step = Math.max(2, Math.floor(3*dpr()));
+for (let y = 0; y < H; y += step) {
+  const col = (Math.random() < 0.5) ? P1 : P2;
+  ctx.globalAlpha = (0.03 + 0.07*Math.random()) * (0.25 + 0.75*energy);
+  ctx.fillStyle = rgba(col, 1);
+  ctx.fillRect(0, y, W, 1*dpr());
+}
+ctx.restore();
+
 
         // Optional: add tiny alpha-cut tears for extra VHS bite (still safe)
         ctx.save();
