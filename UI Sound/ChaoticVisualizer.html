@@ -11,15 +11,12 @@
       height:100%;
       margin:0;
       background:transparent;
+      overflow:hidden;
     }
 
     #pinkviz{
-      position:relative;
-      width:100vw;
-      height:100vh;
-      min-height:320px;
-      left:50%;
-      margin-left:-50vw;
+      position:fixed;
+      inset:0;
       overflow:hidden;
       background:transparent;
     }
@@ -81,10 +78,8 @@
     }
 
     function resize(){
-      const r = host.getBoundingClientRect();
-
-      const wCss = r.width  > 1 ? r.width  : window.innerWidth;
-      const hCss = r.height > 1 ? r.height : window.innerHeight;
+      const wCss = window.innerWidth;
+      const hCss = window.innerHeight;
 
       c.width  = Math.max(2, Math.floor(wCss * dpr()));
       c.height = Math.max(2, Math.floor(hCss * dpr()));
@@ -93,7 +88,6 @@
     }
 
     resize();
-    new ResizeObserver(resize).observe(host);
     window.addEventListener("resize", resize, { passive:true });
 
     const bins=72;
