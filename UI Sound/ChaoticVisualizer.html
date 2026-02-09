@@ -1,0 +1,286 @@
+<!doctype html>
+<html lang="en">
+<head>
+  <meta charset="utf-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1" />
+  <title>Visualizer (Chaotic / Grunge)</title>
+  <style>
+    :root{ --pink:#ff6fae; --pink2:#ff2e93; }
+
+    html,body{
+      height:100%;
+      margin:0;
+      background:transparent;
+    }
+
+    #pinkviz{
+      position:relative;
+      width:100vw;
+      height:100vh;
+      min-height:320px;
+      left:50%;
+      margin-left:-50vw;
+      overflow:hidden;
+      background:transparent;
+    }
+
+    #pinkviz canvas{
+      position:absolute;
+      inset:0;
+      width:100%;
+      height:100%;
+      display:block;
+    }
+  </style>
+</head>
+<body>
+  <div id="pinkviz"></div>
+
+  <script>
+  (() => {
+    const host = document.getElementById("pinkviz");
+    const c = document.createElement("canvas");
+    const ctx = c.getContext("2d", { alpha: true, desynchronized: true });
+    host.appendChild(c);
+
+    const P1 = [255,111,174];
+    const P2 = [255,46,147];
+
+    const lerp=(a,b,t)=>a+(b-a)*t;
+    const clamp=(v,a,b)=>Math.max(a,Math.min(b,v));
+    const rnd=(a,b)=>a+Math.random()*(b-a);
+    const irnd=(a,b)=>Math.floor(rnd(a,b));
+    const dpr=()=>Math.max(1,Math.min(2,window.devicePixelRatio||1));
+
+    const noise = document.createElement("canvas");
+    const nctx = noise.getContext("2d", { alpha: true });
+    let noisePattern = null;
+
+    function buildNoise(){
+      const W = Math.max(256, Math.floor(c.width / 3));
+      const H = Math.max(256, Math.floor(c.height / 3));
+      noise.width = W;
+      noise.height = H;
+
+      const img = nctx.createImageData(W,H);
+      const d = img.data;
+
+      for(let i=0;i<d.length;i+=4){
+        const v = Math.random();
+        const g = v < 0.92 ? Math.pow(v, 3.2) : 1;
+        const m = Math.floor(g * 255);
+        d[i]   = m;
+        d[i+1] = m;
+        d[i+2] = m;
+        d[i+3] = Math.floor((0.15 + Math.random()*0.65) * 255);
+      }
+      nctx.putImageData(img,0,0);
+
+      try{ noisePattern = ctx.createPattern(noise, "repeat"); }
+      catch(e){ noisePattern = null; }
+    }
+
+    function resize(){
+      const r = host.getBoundingClientRect();
+
+      const wCss = r.width  > 1 ? r.width  : window.innerWidth;
+      const hCss = r.height > 1 ? r.height : window.innerHeight;
+
+      c.width  = Math.max(2, Math.floor(wCss * dpr()));
+      c.height = Math.max(2, Math.floor(hCss * dpr()));
+
+      buildNoise();
+    }
+
+    resize();
+    new ResizeObserver(resize).observe(host);
+    window.addEventListener("resize", resize, { passive:true });
+
+    const bins=72;
+    const phase=new Float32Array(bins);
+    const speed=new Float32Array(bins);
+    const base=new Float32Array(bins);
+
+    for(let i=0;i<bins;i++){
+      phase[i]=Math.random()*Math.PI*2;
+      speed[i]=(0.9+Math.random()*2.2)*(0.8+i/bins);
+      base[i]=0.08+Math.random()*0.55;
+    }
+
+    let energy=0, target=0, t0=performance.now();
+    let glitchT = 0;
+    let glitchHold = 0;
+    let flash = 0;
+
+    function rgba(rgb,a){
+      return `rgba(${rgb[0]},${rgb[1]},${rgb[2]},${a})`;
+    }
+
+    function tick(now){
+      const dt=Math.min(0.04,(now-t0)/1000);
+      t0=now;
+
+      const wander=0.50+0.50*Math.sin(now/900)*Math.sin(now/1700);
+      target=clamp(wander + (Math.random()-0.5)*0.14, 0.08, 1.0);
+      energy=lerp(energy,target,0.085);
+
+      if(glitchHold <= 0 && Math.random() < 0.018){
+        glitchHold = rnd(0.10, 0.30);
+        glitchT = rnd(0.6, 1.4);
+      } else {
+        glitchHold = Math.max(0, glitchHold - dt);
+        glitchT = Math.max(0, glitchT - dt*1.2);
+      }
+
+      if(Math.random() < 0.01) flash = 1;
+      flash = Math.max(0, flash - dt*2.2);
+
+      const W=c.width,H=c.height;
+      ctx.clearRect(0,0,W,H);
+
+      const camJx = (Math.random()-0.5) * (1.2 + 10*energy) * dpr() * (glitchHold>0?1:0.35);
+      const camJy = (Math.random()-0.5) * (0.8 + 6*energy)  * dpr() * (glitchHold>0?1:0.25);
+
+      ctx.save();
+      ctx.translate(camJx, camJy);
+
+      ctx.globalCompositeOperation="lighter";
+
+      const mid=H*(0.50 + 0.08*Math.sin(now/1400));
+      const amp=H*(0.10 + 0.25*energy);
+
+      const bands = 4;
+      for(let k=0;k<bands;k++){
+        const kk=k/(bands-1);
+        const col = kk<0.5 ? P1 : P2;
+
+        ctx.beginPath();
+        const ph=now/(520 + kk*420) + kk*2.3 + (glitchHold>0?Math.sin(now/35)*0.6:0);
+        const freq=2.0 + kk*2.6 + (glitchHold>0?0.9:0);
+
+        const step = (5 + 3*energy) * dpr();
+        for(let x=0;x<=W+step;x+=step){
+          const u=x/W;
+
+          const tear =
+            (glitchHold>0)
+              ? (Math.sin(u*40 + now/33) * (H*0.004 + H*0.014*energy) + (Math.random()-0.5)*H*0.002)
+              : 0;
+
+          const y =
+            mid
+            + Math.sin(u*Math.PI*freq + ph) * amp
+            + Math.sin(u*Math.PI*(freq*0.55) - ph*1.25) * amp * (0.22 + 0.78*energy)
+            + Math.sin(u*Math.PI*(freq*2.1) + ph*2.0) * amp * 0.06 * (0.25 + 0.75*energy)
+            + tear;
+
+          if(x<=0) ctx.moveTo(x,y);
+          else ctx.lineTo(x,y);
+        }
+
+        ctx.lineWidth = (8 + 16*energy + kk*7) * dpr();
+        ctx.strokeStyle = rgba(col, 0.10 + 0.08*energy);
+        ctx.shadowColor = rgba(col, 0.75);
+        ctx.shadowBlur  = (18 + 40*energy) * dpr();
+        ctx.stroke();
+      }
+
+      ctx.globalCompositeOperation="source-over";
+
+      const padX=16*dpr(), padY=20*dpr();
+      const usableW=W-padX*2;
+      const baseY=H-padY;
+      const barW=usableW/bins;
+
+      const stomp = (glitchHold>0 ? 1.35 : 1);
+
+      for(let i=0;i<bins;i++){
+        const u=i/(bins-1);
+        const ph=phase[i]+now/(420 + 120*u)*speed[i];
+        const wob=0.50+0.50*Math.sin(ph + Math.sin(now/290 + u*7)*0.8);
+        const fall=Math.pow(Math.sin(u*Math.PI), 0.75);
+
+        const h=(H*(0.12+0.56*energy*stomp))*(base[i]+0.75*wob)*(0.25+0.75*fall);
+
+        const x=padX+i*barW+barW*(0.12 + 0.14*Math.sin(now/240 + i*0.25)*energy);
+        const w=Math.max(1, barW*(0.62 + 0.08*Math.sin(now/310 + i*0.7)));
+        let y=baseY-h;
+
+        if(glitchHold>0 && Math.random()<0.14){
+          y += (Math.random()<0.5?-1:1) * rnd(0, H*0.06) * (0.35+0.65*energy);
+        }
+
+        const mix=u;
+        const col=[
+          Math.round(lerp(P1[0],P2[0],mix)),
+          Math.round(lerp(P1[1],P2[1],mix)),
+          Math.round(lerp(P1[2],P2[2],mix)),
+        ];
+
+        const r=Math.min(10*dpr(),w/2);
+        ctx.shadowColor=rgba(col, 0.7);
+        ctx.shadowBlur=(10+26*energy)*dpr();
+        ctx.fillStyle=rgba(col, 0.18 + 0.14*energy);
+
+        ctx.beginPath();
+        ctx.moveTo(x+r,y);
+        ctx.arcTo(x+w,y,x+w,y+r,r);
+        ctx.arcTo(x+w,baseY,x+w-r,baseY,r);
+        ctx.arcTo(x,baseY,x,baseY-r,r);
+        ctx.arcTo(x,y,x+r,y,r);
+        ctx.closePath();
+        ctx.fill();
+      }
+
+      if(glitchHold>0){
+        const slices = irnd(5, 12);
+        for(let s=0;s<slices;s++){
+          const sh = irnd(6, Math.max(10, H*0.08));
+          const sy = irnd(0, H-sh);
+          const dx = irnd(-W*0.03, W*0.03);
+          const sx = irnd(0, W*0.02);
+          ctx.drawImage(c, sx, sy, W - sx, sh, dx, sy, W - sx, sh);
+        }
+      }
+
+      ctx.save();
+      ctx.globalCompositeOperation="overlay";
+      ctx.fillStyle = "rgba(0,0,0,1)";
+      for(let y=0; y<H; y+=Math.max(2, Math.floor(3*dpr()))){
+        ctx.globalAlpha = (0.06 + 0.10*Math.random()) * (0.3 + 0.7*energy);
+        ctx.fillRect(0, y, W, 1*dpr());
+      }
+      ctx.restore();
+
+      ctx.save();
+      ctx.globalCompositeOperation="soft-light";
+      if(noisePattern){
+        ctx.globalAlpha = 0.22 + 0.30*energy;
+        ctx.fillStyle = noisePattern;
+        ctx.translate(irnd(-50,50), irnd(-50,50));
+        ctx.fillRect(-80,-80,W+160,H+160);
+      }else{
+        ctx.globalAlpha = 0.18 + 0.22*energy;
+        ctx.fillStyle = "rgba(0,0,0,1)";
+        ctx.fillRect(0,0,W,H);
+      }
+      ctx.restore();
+
+      if(flash>0){
+        ctx.save();
+        ctx.globalCompositeOperation="screen";
+        ctx.globalAlpha = 0.08 + 0.16*flash;
+        ctx.fillStyle = `rgba(255,255,255,1)`;
+        ctx.fillRect(0,0,W,H);
+        ctx.restore();
+      }
+
+      ctx.restore();
+      requestAnimationFrame(tick);
+    }
+
+    requestAnimationFrame(tick);
+  })();
+  </script>
+</body>
+</html>
