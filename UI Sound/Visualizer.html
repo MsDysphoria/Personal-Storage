@@ -1,245 +1,286 @@
 <!doctype html>
 <html lang="en">
 <head>
-  <meta charset="utf-8" />
-  <meta name="viewport" content="width=device-width, initial-scale=1" />
-  <title>Visualizer</title>
-  <style>
-    /* Carrd-safe hard reset */
-    * { box-sizing: border-box; }
+<meta charset="utf-8" />
+<meta name="viewport" content="width=device-width, initial-scale=1" />
+<title>Visualizer</title>
+<style>
+* { box-sizing: border-box; }
 
-    html, body {
-      width: 100%;
-      height: 100%;
-      margin: 0 !important;
-      padding: 0 !important;
-      background: transparent !important;
-      overflow: hidden !important;
-    }
+html, body {
+width: 100%;
+height: 100%;
+margin: 0 !important;
+padding: 0 !important;
+background: transparent !important;
+overflow: hidden !important;
+}
 
-    /* Prevent any pseudo overlay from themes */
-    body::before, body::after {
-      content: none !important;
-      display: none !important;
-    }
+body::before, body::after {
+content: none !important;
+display: none !important;
+}
 
-    /* Full-bleed container */
-    #pinkviz{
-      position: fixed;
-      inset: 0;
-      width: 100vw;
-      height: 100vh;
-      background: transparent !important;
-      overflow: hidden;
-    }
 
-    #pinkviz canvas{
-      position:absolute;
-      inset:0;
-      width:100%;
-      height:100%;
-      display:block;
-      background: transparent !important;
-    }
-  </style>
+#pinkviz{
+position: fixed;
+inset: 0;
+width: 100vw;
+height: 100vh;
+background: transparent !important;
+overflow: hidden;
+}
+
+#pinkviz canvas{
+position:absolute;
+inset:0;
+width:100%;
+height:100%;
+display:block;
+background: transparent !important;
+}
+</style>
 </head>
+
 <body>
-  <div id="pinkviz"></div>
 
-  <script>
-  (() => {
-    const host = document.getElementById("pinkviz");
-    const c = document.createElement("canvas");
+<div id="pinkviz"></div>
 
-    // alpha:true is critical; desynchronized helps smoothness
-    const ctx = c.getContext("2d", { alpha:true, desynchronized:true });
+<script>
+(() => {
 
-    host.appendChild(c);
+const host = document.getElementById("pinkviz");
+const c = document.createElement("canvas");
+const ctx = c.getContext("2d", { alpha:true, desynchronized:true });
 
-    const P1 = [255,111,174];
-    const P2 = [255,46,147];
+host.appendChild(c);
 
-    const lerp=(a,b,t)=>a+(b-a)*t;
-    const clamp=(v,a,b)=>Math.max(a,Math.min(b,v));
-    const rnd=(a,b)=>a+Math.random()*(b-a);
-    const irnd=(a,b)=>Math.floor(rnd(a,b));
-    const dpr=()=>Math.max(1,Math.min(2,window.devicePixelRatio||1));
+const P1 = [255,111,174];
+const P2 = [255,46,147];
 
-    function resize(){
-      const r = host.getBoundingClientRect();
-      const s = dpr();
-      c.width  = Math.max(2, Math.floor(r.width  * s));
-      c.height = Math.max(2, Math.floor(r.height * s));
-    }
-    resize();
-    new ResizeObserver(resize).observe(host);
+const lerp=(a,b,t)=>a+(b-a)*t;
+const clamp=(v,a,b)=>Math.max(a,Math.min(b,v));
+const rnd=(a,b)=>a+Math.random()*(b-a);
+const irnd=(a,b)=>Math.floor(rnd(a,b));
+const dpr=()=>Math.max(1,Math.min(2,window.devicePixelRatio||1));
 
-    const bins=64;
-    const phase=new Float32Array(bins);
-    const speed=new Float32Array(bins);
-    const base=new Float32Array(bins);
+function resize(){
+const r = host.getBoundingClientRect();
+const s = dpr();
+c.width  = Math.max(2, Math.floor(r.width  * s));
+c.height = Math.max(2, Math.floor(r.height * s));
+}
+resize();
+new ResizeObserver(resize).observe(host);
 
-    for(let i=0;i<bins;i++){
-      phase[i]=Math.random()*Math.PI*2;
-      speed[i]=(0.8+Math.random()*1.6)*(0.6+i/bins);
-      base[i]=0.10+Math.random()*0.45;
-    }
+const bins=64;
+const phase=new Float32Array(bins);
+const speed=new Float32Array(bins);
+const base=new Float32Array(bins);
 
-    let energy=0, target=0, t0=performance.now();
+for(let i=0;i<bins;i++){
+phase[i]=Math.random()*Math.PI*2;
+speed[i]=(0.8+Math.random()*1.6)*(0.6+i/bins);
+base[i]=0.10+Math.random()*0.45;
+}
 
-    let glitchHold = 0;
-    let timeWarp = 1;
-    let warpTarget = 1;
+let energy=0, target=0, t0=performance.now();
 
-    function rgba(rgb,a){
-      return `rgba(${rgb[0]},${rgb[1]},${rgb[2]},${a})`;
-    }
+const FPS = 30;
+const FRAME_TIME = 1000 / FPS;
+let lastFrame = 0;
 
-    function tick(now){
-      const rawDt=Math.min(0.04,(now-t0)/1000);
-      t0=now;
+let glitchHold = 0;
+let timeWarp = 1;
+let warpTarget = 1;
 
-      if(glitchHold<=0 && Math.random()<0.018){
-        glitchHold = rnd(0.10,0.30);
-        warpTarget = rnd(0.55,1.6);
-      }else{
-        glitchHold = Math.max(0, glitchHold - rawDt);
-        if(glitchHold===0) warpTarget = 1;
-      }
+function rgba(rgb,a){
+return `rgba(${rgb[0]},${rgb[1]},${rgb[2]},${a})`;
+}
 
-      timeWarp = lerp(timeWarp, warpTarget, 0.06);
+function tick(now){
 
-      const wander=0.55+0.45*Math.sin(now/1400)*Math.sin(now/2100);
-      target=clamp(wander+(Math.random()-0.5)*0.08,0.10,1.0);
-      energy=lerp(energy,target,0.06);
 
-      const W=c.width,H=c.height;
+if (now - lastFrame < FRAME_TIME) {
+requestAnimationFrame(tick);
+return;
+}
+lastFrame = now;
 
-      // HARD guarantee: clear to transparent using source-over
-      ctx.setTransform(1,0,0,1,0,0);
-      ctx.globalCompositeOperation="source-over";
-      ctx.clearRect(0,0,W,H);
+const rawDt=Math.min(0.04,(now-t0)/1000);
+t0=now;
 
-      ctx.save();
-      ctx.globalCompositeOperation="lighter";
+if(glitchHold<=0 && Math.random()<0.018){
+glitchHold = rnd(0.10,0.30);
+warpTarget = rnd(0.55,1.6);
+}else{
+glitchHold = Math.max(0, glitchHold - rawDt);
+if(glitchHold===0) warpTarget = 1;
+}
 
-      const mid=H*0.55;
-      const amp=H*(0.10+0.18*energy);
+timeWarp = lerp(timeWarp, warpTarget, 0.06);
 
-      // Waves
-      for(let k=0;k<3;k++){
-        const kk=k/2;
-        const col=kk<0.5?P1:P2;
-        ctx.beginPath();
-        const ph=now/900+kk*1.6 + (glitchHold>0?Math.sin(now/35)*0.3:0);
-        const freq=2.2+kk*1.8 + (glitchHold>0?0.6:0);
+const wander=0.55+0.45*Math.sin(now/1400)*Math.sin(now/2100);
+target=clamp(wander+(Math.random()-0.5)*0.08,0.10,1.0);
+energy=lerp(energy,target,0.06);
 
-        for(let x=0;x<=W;x+=6*dpr()){
-          const u=x/W;
-          const tear =
-            (glitchHold>0)
-              ? (Math.sin(u*40 + now/33) * (H*0.003 + H*0.010*energy) + (Math.random()-0.5)*H*0.0015)
-              : 0;
+const W=c.width,H=c.height;
 
-          const y=
-            mid
-            + Math.sin(u*Math.PI*freq+ph)*amp
-            + Math.sin(u*Math.PI*(freq*0.6)-ph*1.3)*amp*0.45*(0.35+0.65*energy)
-            + tear;
+/* HARD guarantee: clear to transparent */
+ctx.setTransform(1,0,0,1,0,0);
+ctx.globalCompositeOperation="source-over";
+ctx.clearRect(0,0,W,H);
 
-          if(x===0) ctx.moveTo(x,y);
-          else ctx.lineTo(x,y);
-        }
+ctx.save();
+ctx.globalCompositeOperation="lighter";
 
-        ctx.lineWidth=(10+8*energy)*dpr();
-        ctx.strokeStyle=rgba(col,0.12);
-        ctx.shadowColor=rgba(col,0.65);
-        ctx.shadowBlur=(20+28*energy)*dpr();
-        ctx.stroke();
-      }
+const mid=H*0.55;
+const amp=H*(0.10+0.18*energy);
 
-      // Bars
-      const padX=18*dpr(), padY=22*dpr();
-      const usableW=W-padX*2;
-      const baseY=H-padY;
-      const barW=usableW/bins;
+for(let k=0;k<3;k++){
 
-      for(let i=0;i<bins;i++){
-        const u=i/(bins-1);
-        const ph=phase[i]+(now/600)*speed[i]*timeWarp;
-        const wob=0.55+0.45*Math.sin(ph);
-        const fall=Math.sin(u*Math.PI);
+const kk=k/2;
+const col=kk<0.5?P1:P2;
 
-        const stomp = (glitchHold>0 ? 1.25 : 1);
+ctx.beginPath();
 
-        const h=(H*(0.10+0.42*energy*stomp))*
-          (base[i]+0.65*wob)*(0.35+0.65*fall);
+const ph=now/900+kk*1.6 + (glitchHold>0?Math.sin(now/35)*0.3:0);
+const freq=2.2+kk*1.8 + (glitchHold>0?0.6:0);
 
-        const x=padX+i*barW+barW*0.15;
-        const w=barW*0.70;
-        let y=baseY-h;
+for(let x=0;x<=W;x+=6*dpr()){
 
-        if(glitchHold>0 && Math.random()<0.14){
-          y += (Math.random()<0.5?-1:1) * rnd(0, H*0.05) * (0.35+0.65*energy);
-        }
+const u=x/W;
 
-        const mix=u;
-        const col=[
-          Math.round(lerp(P1[0],P2[0],mix)),
-          Math.round(lerp(P1[1],P2[1],mix)),
-          Math.round(lerp(P1[2],P2[2],mix)),
-        ];
+const tear =
+(glitchHold>0)
+? (Math.sin(u*40 + now/33) * (H*0.003 + H*0.010*energy) + (Math.random()-0.5)*H*0.0015)
+: 0;
 
-        const r=Math.min(10*dpr(),w/2);
-        ctx.shadowColor=rgba(col,0.6);
-        ctx.shadowBlur=(14+22*energy)*dpr();
-        ctx.fillStyle=rgba(col,0.22+0.10*energy);
+const y=
+mid
++ Math.sin(u*Math.PI*freq+ph)*amp
++ Math.sin(u*Math.PI*(freq*0.6)-ph*1.3)*amp*0.45*(0.35+0.65*energy)
++ tear;
 
-        ctx.beginPath();
-        // roundRect isn't supported everywhere in older Safari; keep arcTo version
-        ctx.moveTo(x+r,y);
-        ctx.arcTo(x+w,y,x+w,y+r,r);
-        ctx.arcTo(x+w,baseY,x+w-r,baseY,r);
-        ctx.arcTo(x,baseY,x,baseY-r,r);
-        ctx.arcTo(x,y,x+r,y,r);
-        ctx.closePath();
-        ctx.fill();
-      }
+if(x===0) ctx.moveTo(x,y);
+else ctx.lineTo(x,y);
 
-      // Glitch pass (transparency-preserving)
-      if(glitchHold>0){
-        // Slice/shift: reads & writes canvas; doesn't introduce a backdrop
-        const slices = irnd(5, 12);
-        for(let s=0;s<slices;s++){
-          const sh = irnd(6, Math.max(10, H*0.08));
-          const sy = irnd(0, H-sh);
-          const dx = irnd(-W*0.03, W*0.03);
-          const sx = irnd(0, W*0.02);
-          ctx.drawImage(c, sx, sy, W - sx, sh, dx, sy, W - sx, sh);
-        }
+}
 
-        // IMPORTANT: scanlines only affect already-drawn pixels (no veil)
-        ctx.save();
-        ctx.globalCompositeOperation = "source-atop";
-        const step = Math.max(2, Math.floor(3*dpr()));
-        for (let y = 0; y < H; y += step) {
-          const col = (Math.random() < 0.5) ? P1 : P2;
-          ctx.globalAlpha = (0.03 + 0.07*Math.random()) * (0.25 + 0.75*energy);
-          ctx.fillStyle = rgba(col, 1);
-          ctx.fillRect(0, y, W, 1*dpr());
-        }
-        ctx.restore();
+ctx.lineWidth=(10+8*energy)*dpr();
+ctx.strokeStyle=rgba(col,0.12);
+ctx.shadowColor=rgba(col,0.65);
+ctx.shadowBlur=(20+28*energy)*dpr();
 
-        // If Carrd still shows a "dark panel", it's outside this code (section/embed styling).
-        // We intentionally do NOT use overlay/multiply/black fills here.
-      }
+ctx.stroke();
 
-      ctx.restore();
-      requestAnimationFrame(tick);
-    }
+}
 
-    requestAnimationFrame(tick);
-  })();
-  </script>
+const padX=18*dpr(), padY=22*dpr();
+const usableW=W-padX*2;
+const baseY=H-padY;
+const barW=usableW/bins;
+
+for(let i=0;i<bins;i++){
+
+const u=i/(bins-1);
+
+const ph=phase[i]+(now/600)*speed[i]*timeWarp;
+
+const wob=0.55+0.45*Math.sin(ph);
+
+const fall=Math.sin(u*Math.PI);
+
+const stomp = (glitchHold>0 ? 1.25 : 1);
+
+const h=(H*(0.10+0.42*energy*stomp))*
+(base[i]+0.65*wob)*(0.35+0.65*fall);
+
+const x=padX+i*barW+barW*0.15;
+const w=barW*0.70;
+
+let y=baseY-h;
+
+if(glitchHold>0 && Math.random()<0.14){
+y += (Math.random()<0.5?-1:1) * rnd(0, H*0.05) * (0.35+0.65*energy);
+}
+
+const mix=u;
+
+const col=[
+Math.round(lerp(P1[0],P2[0],mix)),
+Math.round(lerp(P1[1],P2[1],mix)),
+Math.round(lerp(P1[2],P2[2],mix)),
+];
+
+const r=Math.min(10*dpr(),w/2);
+
+ctx.shadowColor=rgba(col,0.6);
+ctx.shadowBlur=(14+22*energy)*dpr();
+
+ctx.fillStyle=rgba(col,0.22+0.10*energy);
+
+ctx.beginPath();
+
+ctx.moveTo(x+r,y);
+ctx.arcTo(x+w,y,x+w,y+r,r);
+ctx.arcTo(x+w,baseY,x+w-r,baseY,r);
+ctx.arcTo(x,baseY,x,baseY-r,r);
+ctx.arcTo(x,y,x+r,y,r);
+ctx.closePath();
+
+ctx.fill();
+
+}
+
+if(glitchHold>0){
+
+const slices = irnd(5, 12);
+
+for(let s=0;s<slices;s++){
+
+const sh = irnd(6, Math.max(10, H*0.08));
+const sy = irnd(0, H-sh);
+
+const dx = irnd(-W*0.03, W*0.03);
+const sx = irnd(0, W*0.02);
+
+ctx.drawImage(c, sx, sy, W - sx, sh, dx, sy, W - sx, sh);
+
+}
+
+ctx.save();
+
+ctx.globalCompositeOperation = "source-atop";
+
+const step = Math.max(2, Math.floor(3*dpr()));
+
+for (let y = 0; y < H; y += step) {
+
+const col = (Math.random() < 0.5) ? P1 : P2;
+
+ctx.globalAlpha = (0.03 + 0.07*Math.random()) * (0.25 + 0.75*energy);
+
+ctx.fillStyle = rgba(col, 1);
+
+ctx.fillRect(0, y, W, 1*dpr());
+
+}
+
+ctx.restore();
+
+}
+
+ctx.restore();
+
+requestAnimationFrame(tick);
+
+}
+
+requestAnimationFrame(tick);
+
+})();
+</script>
+
 </body>
 </html>
