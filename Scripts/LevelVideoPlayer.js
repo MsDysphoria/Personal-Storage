@@ -1,20 +1,13 @@
 (function () {
-if (window.__DysphoriaLevelVideoPlayerLayeredLoaded) {
-if (window.DysphoriaLevelVideoPlayerLayered && window.DysphoriaLevelVideoPlayerLayered.init) {
-window.DysphoriaLevelVideoPlayerLayered.init();
+if (window.__DysphoriaLevelVideoPlayerTwoBufferLoaded) {
+if (window.DysphoriaLevelVideoPlayer && window.DysphoriaLevelVideoPlayer.init) {
+window.DysphoriaLevelVideoPlayer.init();
 }
 return;
 }
 
-window.__DysphoriaLevelVideoPlayerLayeredLoaded = true;
-
-var defaultSources = {
-sunrise: "https://msdysphoria.github.io/Personal-Storage/Video/Sunrise.webm",
-day: "https://msdysphoria.github.io/Personal-Storage/Video/Day.webm",
-cloudy: "https://msdysphoria.github.io/Personal-Storage/Video/Cloudy.webm",
-sunset: "https://msdysphoria.github.io/Personal-Storage/Video/Sunset.webm",
-night: "https://msdysphoria.github.io/Personal-Storage/Video/Night.webm"
-};
+window.__DysphoriaLevelVideoPlayerTwoBufferLoaded = true;
+window.__DysphoriaLevelVideoPlayerLoaded = true;
 
 var defaultOrder = ["sunrise", "day", "cloudy", "sunset", "night"];
 
@@ -91,7 +84,7 @@ return waitForVideoEvent(video, ["loadedmetadata", "loadeddata", "canplay"], tim
 
 function waitForFrame(video, timeout) {
 if (!video || video.readyState >= 2) return Promise.resolve();
-return waitForVideoEvent(video, ["loadeddata", "canplay", "canplaythrough", "timeupdate", "seeked"], timeout);
+return waitForVideoEvent(video, ["loadeddata", "canplay", "canplaythrough", "timeupdate"], timeout);
 }
 
 function playSafely(video, timeout) {
@@ -175,13 +168,10 @@ function getSources(root, envOrder) {
 var sources = {};
 
 envOrder.forEach(function (env) {
-var customSource = root.getAttribute("data-src-" + env);
-var defaultSource = defaultSources[env];
+var src = root.getAttribute("data-src-" + env);
 
-if (customSource) {
-sources[env] = customSource;
-} else if (defaultSource) {
-sources[env] = defaultSource;
+if (src) {
+sources[env] = src;
 }
 });
 
@@ -203,7 +193,7 @@ root.style.setProperty("--dlvp-volume-fill-percent", percent + "%");
 }
 
 function initRoot(root) {
-if (!root || root.dataset.dlvpLayerReady === "true") return false;
+if (!root || root.dataset.dlvpTwoBufferReady === "true") return false;
 
 var frame = root.querySelector(".dlvp-video-frame");
 var buttons = toArray(root.querySelectorAll(".dlvp-env-button"));
@@ -211,7 +201,12 @@ var volumeSlider = root.querySelector(".dlvp-volume");
 
 if (!frame || !buttons.length || !volumeSlider) return false;
 
-root.dataset.dlvpLayerReady = "true";
+root.dataset.dlvpTwoBufferReady = "true";
+root.dataset.dlvpReady = "true";
+
+frame.querySelectorAll(".dlvp-env-layer, .dlvp-video").forEach(function (element) {
+element.remove();
+});
 
 var envOrder = getEnvOrder(root, buttons);
 var sources = getSources(root, envOrder);
@@ -221,11 +216,11 @@ return !!sources[env];
 });
 
 if (!envOrder.length) {
-root.dataset.dlvpLayerReady = "false";
+root.dataset.dlvpTwoBufferReady = "false";
+root.dataset.dlvpReady = "false";
 return false;
 }
 
-var envStates = {};
 var activeButton = root.querySelector(".dlvp-env-button.dlvp-active");
 var currentEnv = root.getAttribute("data-initial-env") || (activeButton ? activeButton.getAttribute("data-env") : "") || envOrder[0];
 
@@ -233,11 +228,12 @@ if (!sources[currentEnv]) {
 currentEnv = envOrder[0];
 }
 
+var envStates = {};
 var currentState = null;
 var currentVolume = parseFloat(volumeSlider.value || "0") || 0;
 var transitionLocked = false;
 var cooldownTimer = null;
-var layerAudioFrame = null;
+var environmentAudioFrame = null;
 var isVisible = true;
 
 function getPrepareTimeout() {
@@ -248,8 +244,14 @@ function getCrossfadeTime() {
 return getCssTimeMs(root, "--dlvp-crossfade-time", 1650);
 }
 
-function getLoopFadeTime() {
-return getCssTimeMs(root, "--dlvp-loop-crossfade-time", 700);
+function getLoopSwapLead() {
+return getCssNumber(root, "--dlvp-loop-swap-lead", 0.12);
+}
+
+function setButtonState(env) {
+buttons.forEach(function (button) {
+button.classList.toggle("dlvp-active", button.getAttribute("data-env") === env);
+});
 }
 
 function lockControls() {
@@ -275,15 +277,11 @@ transitionLocked = false;
 root.classList.remove("dlvp-cooldown");
 
 buttons.forEach(function (button) {
+if (button.style.display !== "none") {
 button.disabled = false;
+}
 });
 }, remaining);
-}
-
-function setButtonState(env) {
-buttons.forEach(function (button) {
-button.classList.toggle("dlvp-active", button.getAttribute("data-env") === env);
-});
 }
 
 function setMediaVolume(video, value) {
@@ -322,7 +320,7 @@ layer.style.pointerEvents = "none";
 layer.style.transition = "none";
 }
 
-function styleVideo(video, visible, zIndex) {
+function setVideoVisible(video, visible, zIndex) {
 video.style.opacity = visible ? "1" : "0";
 video.style.zIndex = String(zIndex || 1);
 video.style.transition = "none";
@@ -334,7 +332,7 @@ video.className = "dlvp-video dlvp-video-" + env;
 video.src = sources[env];
 video.preload = "auto";
 video.autoplay = true;
-video.loop = true;
+video.loop = false;
 video.controls = false;
 video.playsInline = true;
 video.muted = true;
@@ -343,6 +341,8 @@ video.volume = 0;
 video.setAttribute("playsinline", "");
 video.setAttribute("muted", "");
 video.removeAttribute("controls");
+
+setVideoVisible(video, false, 1);
 
 video.load();
 }
@@ -358,14 +358,11 @@ styleLayer(layer);
 prepareVideo(videoA, env);
 prepareVideo(videoB, env);
 
-styleVideo(videoA, false, 1);
-styleVideo(videoB, false, 1);
-
 layer.appendChild(videoA);
 layer.appendChild(videoB);
 frame.appendChild(layer);
 
-return {
+var state = {
 env: env,
 layer: layer,
 videos: [videoA, videoB],
@@ -374,29 +371,37 @@ mix: [1, 0],
 audioGain: 0,
 started: false,
 looping: false,
-loopFrame: null,
-loopAudioFrame: null,
-loopVisualTimer: null
+loopFrame: null
 };
+
+videoA.addEventListener("ended", function () {
+if (state.started && state.activeIndex === 0 && !state.looping) {
+beginHardLoop(state, true);
+}
+});
+
+videoB.addEventListener("ended", function () {
+if (state.started && state.activeIndex === 1 && !state.looping) {
+beginHardLoop(state, true);
+}
+});
+
+return state;
 }
 
-function pauseState(state, reset) {
+function stopLoopMonitor(state) {
 if (!state) return;
 
 if (state.loopFrame) {
 cancelAnimationFrame(state.loopFrame);
 state.loopFrame = null;
 }
-
-if (state.loopAudioFrame) {
-cancelAnimationFrame(state.loopAudioFrame);
-state.loopAudioFrame = null;
 }
 
-if (state.loopVisualTimer) {
-clearTimeout(state.loopVisualTimer);
-state.loopVisualTimer = null;
-}
+function pauseState(state, reset) {
+if (!state) return;
+
+stopLoopMonitor(state);
 
 state.started = false;
 state.looping = false;
@@ -410,15 +415,18 @@ state.layer.style.transition = "none";
 state.videos.forEach(function (video) {
 try {
 video.pause();
-if (reset) video.currentTime = 0;
+
+if (reset) {
+video.currentTime = 0;
+}
 } catch (error) {}
 
 setMediaVolume(video, 0);
-styleVideo(video, false, 1);
+setVideoVisible(video, false, 1);
 });
 }
 
-function playStateVideos(state) {
+function playVisibleStateVideos(state) {
 if (!state || !state.started || !isVisible || document.visibilityState !== "visible") return;
 
 state.videos.forEach(function (video, index) {
@@ -428,129 +436,47 @@ playSafely(video, getPrepareTimeout());
 });
 }
 
-function startLoopMonitor(state) {
-if (!state) return;
-
-if (state.loopFrame) {
-cancelAnimationFrame(state.loopFrame);
-state.loopFrame = null;
+function playAllVisibleVideos() {
+Object.keys(envStates).forEach(function (env) {
+playVisibleStateVideos(envStates[env]);
+});
 }
 
-function tick() {
-if (!state.started) return;
-
-if (!state.looping) {
-try {
-var activeVideo = state.videos[state.activeIndex];
-var duration = activeVideo.duration;
-var time = activeVideo.currentTime;
-
-if (Number.isFinite(duration) && duration > 0) {
-var loopFadeSeconds = getLoopFadeTime() / 1000;
-var trim = getCssNumber(root, "--dlvp-loop-trim", 0.18);
-var prepareLead = getCssNumber(root, "--dlvp-loop-prepare-lead", 0.35);
-var threshold = Math.max(0.1, duration - loopFadeSeconds - trim - prepareLead);
-
-if (time >= threshold) {
-beginSelfLoop(state);
-}
-}
-} catch (error) {}
-}
-
-state.loopFrame = requestAnimationFrame(tick);
-}
-
-state.loopFrame = requestAnimationFrame(tick);
-}
-
-function animateLoopAudio(state, oldIndex, newIndex, duration) {
-if (state.loopAudioFrame) {
-cancelAnimationFrame(state.loopAudioFrame);
-state.loopAudioFrame = null;
-}
-
-var start = performance.now();
-
-function step(now) {
-if (!state.started) return;
-
-var t = clamp01((now - start) / duration);
-var eased = t < 0.5 ? 2 * t * t : 1 - Math.pow(-2 * t + 2, 2) / 2;
-
-state.mix[oldIndex] = 1 - eased;
-state.mix[newIndex] = eased;
-
-applyStateVolumes(state);
-
-if (t < 1) {
-state.loopAudioFrame = requestAnimationFrame(step);
-} else {
-state.mix[oldIndex] = 0;
-state.mix[newIndex] = 1;
-applyStateVolumes(state);
-state.loopAudioFrame = null;
-}
-}
-
-state.loopAudioFrame = requestAnimationFrame(step);
-}
-
-function visualSelfFade(state, oldIndex, newIndex, duration, onDone) {
+function hardSwapLoopVideos(state, oldIndex, newIndex) {
 var oldVideo = state.videos[oldIndex];
 var newVideo = state.videos[newIndex];
 
-newVideo.style.transition = "none";
-oldVideo.style.transition = "none";
+state.activeIndex = newIndex;
+state.mix[oldIndex] = 0;
+state.mix[newIndex] = 1;
 
-newVideo.style.opacity = "1";
-newVideo.style.zIndex = "2";
-newVideo.classList.add("dlvp-visible");
+setVideoVisible(newVideo, true, 2);
+setVideoVisible(oldVideo, false, 1);
 
-oldVideo.style.opacity = "1";
-oldVideo.style.zIndex = "3";
-oldVideo.classList.add("dlvp-visible");
+applyStateVolumes(state);
 
-oldVideo.offsetHeight;
+try {
+oldVideo.pause();
+oldVideo.currentTime = 0;
+} catch (error) {}
 
-oldVideo.style.transition = "opacity " + duration + "ms linear";
-
-requestAnimationFrame(function () {
-oldVideo.style.opacity = "0";
-});
-
-state.loopVisualTimer = setTimeout(function () {
-oldVideo.classList.remove("dlvp-visible");
-oldVideo.style.opacity = "0";
-oldVideo.style.zIndex = "1";
-oldVideo.style.transition = "none";
-
-newVideo.classList.add("dlvp-visible");
-newVideo.style.opacity = "1";
-newVideo.style.zIndex = "2";
-newVideo.style.transition = "none";
-
-state.loopVisualTimer = null;
-
-if (onDone) onDone();
-}, duration + 80);
+state.looping = false;
 }
 
-function beginSelfLoop(state) {
+function beginHardLoop(state, forced) {
 if (!state || !state.started || state.looping) return;
 
 var oldIndex = state.activeIndex;
 var newIndex = oldIndex === 0 ? 1 : 0;
 var oldVideo = state.videos[oldIndex];
 var newVideo = state.videos[newIndex];
-var duration = getLoopFadeTime();
 var timeout = getPrepareTimeout();
 
 state.looping = true;
 
 state.mix[newIndex] = 0;
-styleVideo(newVideo, false, 1);
-applyStateVolumes(state);
+setMediaVolume(newVideo, 0);
+setVideoVisible(newVideo, false, 1);
 
 seekSafely(newVideo, 0, timeout).then(function () {
 if (!state.started) return Promise.resolve();
@@ -566,23 +492,39 @@ state.looping = false;
 return;
 }
 
-state.activeIndex = newIndex;
+hardSwapLoopVideos(state, oldIndex, newIndex);
+});
+}
 
-visualSelfFade(state, oldIndex, newIndex, duration, function () {
+function startLoopMonitor(state) {
+if (!state) return;
+
+stopLoopMonitor(state);
+
+function tick() {
+if (!state.started) return;
+
+if (!state.looping) {
 try {
-oldVideo.pause();
-oldVideo.currentTime = 0;
+var activeVideo = state.videos[state.activeIndex];
+var duration = activeVideo.duration;
+var time = activeVideo.currentTime;
+
+if (Number.isFinite(duration) && duration > 0) {
+var lead = getLoopSwapLead();
+var threshold = Math.max(0.05, duration - lead);
+
+if (time >= threshold) {
+beginHardLoop(state, false);
+}
+}
 } catch (error) {}
+}
 
-state.mix[oldIndex] = 0;
-state.mix[newIndex] = 1;
-applyStateVolumes(state);
+state.loopFrame = requestAnimationFrame(tick);
+}
 
-state.looping = false;
-});
-
-animateLoopAudio(state, oldIndex, newIndex, duration);
-});
+state.loopFrame = requestAnimationFrame(tick);
 }
 
 function startState(state, restart) {
@@ -592,33 +534,21 @@ var timeout = getPrepareTimeout();
 var activeVideo = state.videos[0];
 var standbyVideo = state.videos[1];
 
+stopLoopMonitor(state);
+
 state.started = true;
 state.looping = false;
 state.activeIndex = 0;
 state.mix = [1, 0];
 
-if (state.loopFrame) {
-cancelAnimationFrame(state.loopFrame);
-state.loopFrame = null;
-}
-
-if (state.loopAudioFrame) {
-cancelAnimationFrame(state.loopAudioFrame);
-state.loopAudioFrame = null;
-}
-
-if (state.loopVisualTimer) {
-clearTimeout(state.loopVisualTimer);
-state.loopVisualTimer = null;
-}
-
-styleVideo(activeVideo, true, 2);
-styleVideo(standbyVideo, false, 1);
+setVideoVisible(activeVideo, true, 2);
+setVideoVisible(standbyVideo, false, 1);
 
 if (restart) {
 try {
 activeVideo.pause();
 standbyVideo.pause();
+activeVideo.currentTime = 0;
 standbyVideo.currentTime = 0;
 } catch (error) {}
 }
@@ -640,10 +570,10 @@ startLoopMonitor(state);
 });
 }
 
-function fadeLayerAudio(fromState, toState, duration) {
-if (layerAudioFrame) {
-cancelAnimationFrame(layerAudioFrame);
-layerAudioFrame = null;
+function fadeEnvironmentAudio(fromState, toState, duration) {
+if (environmentAudioFrame) {
+cancelAnimationFrame(environmentAudioFrame);
+environmentAudioFrame = null;
 }
 
 var start = performance.now();
@@ -663,7 +593,7 @@ applyStateVolumes(toState);
 }
 
 if (t < 1) {
-layerAudioFrame = requestAnimationFrame(step);
+environmentAudioFrame = requestAnimationFrame(step);
 } else {
 if (fromState) {
 fromState.audioGain = 0;
@@ -675,14 +605,14 @@ toState.audioGain = 1;
 applyStateVolumes(toState);
 }
 
-layerAudioFrame = null;
+environmentAudioFrame = null;
 }
 }
 
-layerAudioFrame = requestAnimationFrame(step);
+environmentAudioFrame = requestAnimationFrame(step);
 }
 
-function visualLayerFade(fromState, toState, duration, onDone) {
+function fadeEnvironmentVisual(fromState, toState, duration, onDone) {
 if (toState) {
 toState.layer.style.transition = "none";
 toState.layer.style.opacity = "1";
@@ -693,7 +623,9 @@ if (fromState) {
 fromState.layer.style.transition = "none";
 fromState.layer.style.opacity = "1";
 fromState.layer.style.zIndex = "3";
+
 fromState.layer.offsetHeight;
+
 fromState.layer.style.transition = "opacity " + duration + "ms linear";
 
 requestAnimationFrame(function () {
@@ -731,12 +663,10 @@ var toState = envStates[env];
 lockControls();
 setButtonState(env);
 
-if (toState) {
 toState.audioGain = 0;
-applyStateVolumes(toState);
 toState.layer.style.opacity = "0";
 toState.layer.style.zIndex = "2";
-}
+applyStateVolumes(toState);
 
 startState(toState, true).then(function () {
 if (!toState) return;
@@ -744,7 +674,7 @@ if (!toState) return;
 currentEnv = env;
 currentState = toState;
 
-visualLayerFade(fromState, toState, duration, function () {
+fadeEnvironmentVisual(fromState, toState, duration, function () {
 if (fromState && fromState !== toState) {
 pauseState(fromState, true);
 }
@@ -755,7 +685,7 @@ applyStateVolumes(toState);
 unlockControlsAfter(lockStart, minimumCooldown);
 });
 
-fadeLayerAudio(fromState, toState, duration);
+fadeEnvironmentAudio(fromState, toState, duration);
 });
 }
 
@@ -782,8 +712,16 @@ envStates[env] = createState(env);
 });
 
 buttons.forEach(function (button) {
+var env = button.getAttribute("data-env");
+
+if (!sources[env]) {
+button.disabled = true;
+button.style.display = "none";
+return;
+}
+
 button.addEventListener("click", function () {
-switchEnvironment(button.getAttribute("data-env"));
+switchEnvironment(env);
 });
 });
 
@@ -791,17 +729,12 @@ volumeSlider.addEventListener("input", function () {
 currentVolume = parseFloat(volumeSlider.value) || 0;
 updateSliderFill(root, volumeSlider);
 applyAllVolumes();
-
-if (currentState) {
-playStateVideos(currentState);
-}
+playAllVisibleVideos();
 });
 
 document.addEventListener("visibilitychange", function () {
 if (document.visibilityState === "visible") {
-Object.keys(envStates).forEach(function (env) {
-playStateVideos(envStates[env]);
-});
+playAllVisibleVideos();
 } else {
 Object.keys(envStates).forEach(function (env) {
 envStates[env].videos.forEach(function (video) {
@@ -821,9 +754,7 @@ if (entry.target !== root) return;
 isVisible = entry.isIntersecting && entry.intersectionRatio > 0.1;
 
 if (isVisible) {
-Object.keys(envStates).forEach(function (env) {
-playStateVideos(envStates[env]);
-});
+playAllVisibleVideos();
 } else {
 Object.keys(envStates).forEach(function (env) {
 envStates[env].videos.forEach(function (video) {
@@ -853,12 +784,10 @@ initRoot(root);
 });
 }
 
-window.DysphoriaLevelVideoPlayerLayered = {
+window.DysphoriaLevelVideoPlayer = {
 init: initAll,
 initOne: initRoot
 };
-
-window.DysphoriaLevelVideoPlayer = window.DysphoriaLevelVideoPlayerLayered;
 
 function scheduleInit() {
 initAll();
