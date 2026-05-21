@@ -1,4 +1,3 @@
-<script>
 (function () {
 if (window.__DysphoriaLevelVideoPlayerLayeredLoaded) {
 if (window.DysphoriaLevelVideoPlayerLayered && window.DysphoriaLevelVideoPlayerLayered.init) {
@@ -889,4 +888,3 @@ subtree: true
 });
 }
 })();
-</script>
