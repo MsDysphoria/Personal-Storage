@@ -231,9 +231,12 @@ currentEnv = envOrder[0];
 var envStates = {};
 var currentState = null;
 var currentVolume = parseFloat(volumeSlider.value || "0") || 0;
+var viewportAudioGain = 1;
+
 var transitionLocked = false;
 var cooldownTimer = null;
 var environmentAudioFrame = null;
+var viewportAudioFrame = null;
 var isVisible = true;
 
 function getPrepareTimeout() {
@@ -246,6 +249,10 @@ return getCssTimeMs(root, "--dlvp-crossfade-time", 1650);
 
 function getLoopSwapLead() {
 return getCssNumber(root, "--dlvp-loop-swap-lead", 0.12);
+}
+
+function getVisibilityAudioFadeTime() {
+return getCssTimeMs(root, "--dlvp-visibility-audio-fade-time", 550);
 }
 
 function setButtonState(env) {
@@ -299,7 +306,7 @@ function applyStateVolumes(state) {
 if (!state) return;
 
 state.videos.forEach(function (video, index) {
-setMediaVolume(video, currentVolume * state.audioGain * state.mix[index]);
+setMediaVolume(video, currentVolume * viewportAudioGain * state.audioGain * state.mix[index]);
 });
 }
 
@@ -307,6 +314,45 @@ function applyAllVolumes() {
 Object.keys(envStates).forEach(function (env) {
 applyStateVolumes(envStates[env]);
 });
+}
+
+function fadeViewportAudio(targetGain, pauseAfter) {
+if (viewportAudioFrame) {
+cancelAnimationFrame(viewportAudioFrame);
+viewportAudioFrame = null;
+}
+
+var startGain = viewportAudioGain;
+var duration = getVisibilityAudioFadeTime();
+var start = performance.now();
+
+function step(now) {
+var t = clamp01((now - start) / duration);
+var eased = t < 0.5 ? 2 * t * t : 1 - Math.pow(-2 * t + 2, 2) / 2;
+
+viewportAudioGain = startGain + ((targetGain - startGain) * eased);
+applyAllVolumes();
+
+if (t < 1) {
+viewportAudioFrame = requestAnimationFrame(step);
+} else {
+viewportAudioGain = targetGain;
+applyAllVolumes();
+viewportAudioFrame = null;
+
+if (pauseAfter) {
+Object.keys(envStates).forEach(function (env) {
+envStates[env].videos.forEach(function (video) {
+try {
+video.pause();
+} catch (error) {}
+});
+});
+}
+}
+}
+
+viewportAudioFrame = requestAnimationFrame(step);
 }
 
 function styleLayer(layer) {
@@ -376,13 +422,13 @@ loopFrame: null
 
 videoA.addEventListener("ended", function () {
 if (state.started && state.activeIndex === 0 && !state.looping) {
-beginHardLoop(state, true);
+beginHardLoop(state);
 }
 });
 
 videoB.addEventListener("ended", function () {
 if (state.started && state.activeIndex === 1 && !state.looping) {
-beginHardLoop(state, true);
+beginHardLoop(state);
 }
 });
 
@@ -463,12 +509,11 @@ oldVideo.currentTime = 0;
 state.looping = false;
 }
 
-function beginHardLoop(state, forced) {
+function beginHardLoop(state) {
 if (!state || !state.started || state.looping) return;
 
 var oldIndex = state.activeIndex;
 var newIndex = oldIndex === 0 ? 1 : 0;
-var oldVideo = state.videos[oldIndex];
 var newVideo = state.videos[newIndex];
 var timeout = getPrepareTimeout();
 
@@ -515,7 +560,7 @@ var lead = getLoopSwapLead();
 var threshold = Math.max(0.05, duration - lead);
 
 if (time >= threshold) {
-beginHardLoop(state, false);
+beginHardLoop(state);
 }
 }
 } catch (error) {}
@@ -734,15 +779,12 @@ playAllVisibleVideos();
 
 document.addEventListener("visibilitychange", function () {
 if (document.visibilityState === "visible") {
+isVisible = true;
 playAllVisibleVideos();
+fadeViewportAudio(1, false);
 } else {
-Object.keys(envStates).forEach(function (env) {
-envStates[env].videos.forEach(function (video) {
-try {
-video.pause();
-} catch (error) {}
-});
-});
+isVisible = false;
+fadeViewportAudio(0, true);
 }
 });
 
@@ -751,18 +793,13 @@ var observer = new IntersectionObserver(function (entries) {
 entries.forEach(function (entry) {
 if (entry.target !== root) return;
 
-isVisible = entry.isIntersecting && entry.intersectionRatio > 0.1;
-
-if (isVisible) {
+if (entry.isIntersecting && entry.intersectionRatio > 0.1) {
+isVisible = true;
 playAllVisibleVideos();
+fadeViewportAudio(1, false);
 } else {
-Object.keys(envStates).forEach(function (env) {
-envStates[env].videos.forEach(function (video) {
-try {
-video.pause();
-} catch (error) {}
-});
-});
+isVisible = false;
+fadeViewportAudio(0, true);
 }
 });
 }, {
