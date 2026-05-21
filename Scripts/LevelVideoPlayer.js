@@ -1,15 +1,18 @@
 (function () {
-if (window.__DysphoriaLevelVideoPlayerTwoBufferLoaded) {
+if (window.__DysphoriaLevelVideoPlayerOptimizedTwoBufferLoaded) {
 if (window.DysphoriaLevelVideoPlayer && window.DysphoriaLevelVideoPlayer.init) {
 window.DysphoriaLevelVideoPlayer.init();
 }
 return;
 }
 
+window.__DysphoriaLevelVideoPlayerOptimizedTwoBufferLoaded = true;
 window.__DysphoriaLevelVideoPlayerTwoBufferLoaded = true;
 window.__DysphoriaLevelVideoPlayerLoaded = true;
 
 var defaultOrder = ["sunrise", "day", "cloudy", "sunset", "night"];
+var preloadedSources = window.__DysphoriaLevelVideoPlayerPreloadedSources || {};
+window.__DysphoriaLevelVideoPlayerPreloadedSources = preloadedSources;
 
 function toArray(list) {
 return Array.prototype.slice.call(list || []);
@@ -47,6 +50,50 @@ if (value.indexOf("ms") !== -1) return parseFloat(value) || fallback;
 if (value.indexOf("s") !== -1) return (parseFloat(value) || fallback / 1000) * 1000;
 
 return parseFloat(value) || fallback;
+}
+
+function getNumberAttribute(root, name, fallback) {
+var value = root.getAttribute(name);
+var parsed = parseFloat(value);
+return Number.isFinite(parsed) ? parsed : fallback;
+}
+
+function getBooleanAttribute(root, name, fallback) {
+var value = root.getAttribute(name);
+
+if (value === "true") return true;
+if (value === "false") return false;
+
+return fallback;
+}
+
+function runIdle(callback) {
+if ("requestIdleCallback" in window) {
+window.requestIdleCallback(callback, { timeout: 1500 });
+} else {
+setTimeout(callback, 300);
+}
+}
+
+function preloadSource(src) {
+if (!src || preloadedSources[src]) return;
+
+preloadedSources[src] = true;
+
+function addLink() {
+if (!document.head) {
+setTimeout(addLink, 50);
+return;
+}
+
+var link = document.createElement("link");
+link.rel = "preload";
+link.as = "video";
+link.href = src;
+document.head.appendChild(link);
+}
+
+addLink();
 }
 
 function waitForVideoEvent(video, eventNames, timeout) {
@@ -148,6 +195,18 @@ timer = setTimeout(finish, timeout);
 });
 }
 
+function getInitialViewportState(element) {
+if (!element || !element.getBoundingClientRect) return true;
+
+var rect = element.getBoundingClientRect();
+var width = window.innerWidth || document.documentElement.clientWidth || 0;
+var height = window.innerHeight || document.documentElement.clientHeight || 0;
+
+if (rect.width <= 0 || rect.height <= 0) return false;
+
+return rect.bottom > 0 && rect.right > 0 && rect.top < height && rect.left < width;
+}
+
 function getEnvOrder(root, buttons) {
 var attr = root.getAttribute("data-env-order");
 
@@ -193,7 +252,7 @@ root.style.setProperty("--dlvp-volume-fill-percent", percent + "%");
 }
 
 function initRoot(root) {
-if (!root || root.dataset.dlvpTwoBufferReady === "true") return false;
+if (!root || root.dataset.dlvpOptimizedReady === "true") return false;
 
 var frame = root.querySelector(".dlvp-video-frame");
 var buttons = toArray(root.querySelectorAll(".dlvp-env-button"));
@@ -201,6 +260,7 @@ var volumeSlider = root.querySelector(".dlvp-volume");
 
 if (!frame || !buttons.length || !volumeSlider) return false;
 
+root.dataset.dlvpOptimizedReady = "true";
 root.dataset.dlvpTwoBufferReady = "true";
 root.dataset.dlvpReady = "true";
 
@@ -216,6 +276,7 @@ return !!sources[env];
 });
 
 if (!envOrder.length) {
+root.dataset.dlvpOptimizedReady = "false";
 root.dataset.dlvpTwoBufferReady = "false";
 root.dataset.dlvpReady = "false";
 return false;
@@ -231,13 +292,21 @@ currentEnv = envOrder[0];
 var envStates = {};
 var currentState = null;
 var currentVolume = parseFloat(volumeSlider.value || "0") || 0;
-var viewportAudioGain = 1;
 
+var viewportAudioGain = 0;
 var transitionLocked = false;
 var cooldownTimer = null;
 var environmentAudioFrame = null;
 var viewportAudioFrame = null;
-var isVisible = true;
+
+var pageVisible = document.visibilityState === "visible";
+var viewportVisible = getInitialViewportState(root);
+
+function shouldPlay() {
+return pageVisible && viewportVisible;
+}
+
+viewportAudioGain = shouldPlay() ? 1 : 0;
 
 function getPrepareTimeout() {
 return getCssTimeMs(root, "--dlvp-transition-prepare-timeout", 1200);
@@ -253,6 +322,14 @@ return getCssNumber(root, "--dlvp-loop-swap-lead", 0.12);
 
 function getVisibilityAudioFadeTime() {
 return getCssTimeMs(root, "--dlvp-visibility-audio-fade-time", 550);
+}
+
+function getStateCacheLimit() {
+return Math.max(1, Math.round(getNumberAttribute(root, "data-state-cache-limit", getCssNumber(root, "--dlvp-state-cache-limit", 2))));
+}
+
+function shouldPreloadSources() {
+return getBooleanAttribute(root, "data-preload-sources", true);
 }
 
 function setButtonState(env) {
@@ -303,7 +380,7 @@ video.muted = volume <= 0;
 }
 
 function applyStateVolumes(state) {
-if (!state) return;
+if (!state || state.destroyed) return;
 
 state.videos.forEach(function (video, index) {
 setMediaVolume(video, currentVolume * viewportAudioGain * state.audioGain * state.mix[index]);
@@ -316,14 +393,42 @@ applyStateVolumes(envStates[env]);
 });
 }
 
-function fadeViewportAudio(targetGain, pauseAfter) {
+function pauseAllPlayableVideos() {
+Object.keys(envStates).forEach(function (env) {
+var state = envStates[env];
+
+if (!state || state.destroyed) return;
+
+stopLoopMonitor(state);
+
+state.videos.forEach(function (video) {
+try {
+video.pause();
+} catch (error) {}
+});
+});
+}
+
+function fadeViewportAudio(targetGain, pauseAfter, immediate) {
 if (viewportAudioFrame) {
 cancelAnimationFrame(viewportAudioFrame);
 viewportAudioFrame = null;
 }
 
+var duration = immediate ? 0 : getVisibilityAudioFadeTime();
+
+if (duration <= 0) {
+viewportAudioGain = targetGain;
+applyAllVolumes();
+
+if (pauseAfter) {
+pauseAllPlayableVideos();
+}
+
+return;
+}
+
 var startGain = viewportAudioGain;
-var duration = getVisibilityAudioFadeTime();
 var start = performance.now();
 
 function step(now) {
@@ -341,13 +446,7 @@ applyAllVolumes();
 viewportAudioFrame = null;
 
 if (pauseAfter) {
-Object.keys(envStates).forEach(function (env) {
-envStates[env].videos.forEach(function (video) {
-try {
-video.pause();
-} catch (error) {}
-});
-});
+pauseAllPlayableVideos();
 }
 }
 }
@@ -377,7 +476,7 @@ function prepareVideo(video, env) {
 video.className = "dlvp-video dlvp-video-" + env;
 video.src = sources[env];
 video.preload = "auto";
-video.autoplay = true;
+video.autoplay = false;
 video.loop = false;
 video.controls = false;
 video.playsInline = true;
@@ -386,7 +485,12 @@ video.volume = 0;
 
 video.setAttribute("playsinline", "");
 video.setAttribute("muted", "");
+video.setAttribute("aria-hidden", "true");
 video.removeAttribute("controls");
+
+try {
+video.disablePictureInPicture = true;
+} catch (error) {}
 
 setVideoVisible(video, false, 1);
 
@@ -417,20 +521,36 @@ mix: [1, 0],
 audioGain: 0,
 started: false,
 looping: false,
-loopFrame: null
+loopFrame: null,
+destroyed: false,
+lastUsed: performance.now()
 };
 
 videoA.addEventListener("ended", function () {
-if (state.started && state.activeIndex === 0 && !state.looping) {
+if (state.started && state.activeIndex === 0 && !state.looping && shouldPlay()) {
 beginHardLoop(state);
 }
 });
 
 videoB.addEventListener("ended", function () {
-if (state.started && state.activeIndex === 1 && !state.looping) {
+if (state.started && state.activeIndex === 1 && !state.looping && shouldPlay()) {
 beginHardLoop(state);
 }
 });
+
+return state;
+}
+
+function getOrCreateState(env) {
+var state = envStates[env];
+
+if (state && !state.destroyed) {
+state.lastUsed = performance.now();
+return state;
+}
+
+state = createState(env);
+envStates[env] = state;
 
 return state;
 }
@@ -445,7 +565,7 @@ state.loopFrame = null;
 }
 
 function pauseState(state, reset) {
-if (!state) return;
+if (!state || state.destroyed) return;
 
 stopLoopMonitor(state);
 
@@ -472,14 +592,66 @@ setVideoVisible(video, false, 1);
 });
 }
 
+function destroyState(state) {
+if (!state || state.destroyed || state === currentState) return;
+
+pauseState(state, true);
+
+state.destroyed = true;
+
+try {
+state.videos.forEach(function (video) {
+video.removeAttribute("src");
+video.load();
+});
+} catch (error) {}
+
+try {
+state.layer.remove();
+} catch (error) {}
+
+delete envStates[state.env];
+}
+
+function pruneStateCache() {
+var limit = getStateCacheLimit();
+var states = Object.keys(envStates).map(function (env) {
+return envStates[env];
+}).filter(function (state) {
+return state && !state.destroyed && state !== currentState;
+});
+
+states.sort(function (a, b) {
+return a.lastUsed - b.lastUsed;
+});
+
+while (Object.keys(envStates).length > limit && states.length) {
+destroyState(states.shift());
+}
+}
+
+function primeStandby(state) {
+if (!state || state.destroyed) return Promise.resolve();
+
+var timeout = getPrepareTimeout();
+var standbyIndex = state.activeIndex === 0 ? 1 : 0;
+var standbyVideo = state.videos[standbyIndex];
+
+return waitForMetadata(standbyVideo, timeout).then(function () {
+return seekSafely(standbyVideo, 0, timeout);
+});
+}
+
 function playVisibleStateVideos(state) {
-if (!state || !state.started || !isVisible || document.visibilityState !== "visible") return;
+if (!state || !state.started || state.destroyed || !shouldPlay()) return;
 
 state.videos.forEach(function (video, index) {
 if (state.mix[index] > 0) {
 playSafely(video, getPrepareTimeout());
 }
 });
+
+startLoopMonitor(state);
 }
 
 function playAllVisibleVideos() {
@@ -489,6 +661,8 @@ playVisibleStateVideos(envStates[env]);
 }
 
 function hardSwapLoopVideos(state, oldIndex, newIndex) {
+if (!state || state.destroyed) return;
+
 var oldVideo = state.videos[oldIndex];
 var newVideo = state.videos[newIndex];
 
@@ -510,7 +684,7 @@ state.looping = false;
 }
 
 function beginHardLoop(state) {
-if (!state || !state.started || state.looping) return;
+if (!state || !state.started || state.looping || state.destroyed || !shouldPlay()) return;
 
 var oldIndex = state.activeIndex;
 var newIndex = oldIndex === 0 ? 1 : 0;
@@ -524,15 +698,15 @@ setMediaVolume(newVideo, 0);
 setVideoVisible(newVideo, false, 1);
 
 seekSafely(newVideo, 0, timeout).then(function () {
-if (!state.started) return Promise.resolve();
+if (!state.started || state.destroyed || !shouldPlay()) return Promise.resolve();
 
 return playSafely(newVideo, timeout);
 }).then(function () {
-if (!state.started) return Promise.resolve();
+if (!state.started || state.destroyed || !shouldPlay()) return Promise.resolve();
 
 return waitForFrame(newVideo, timeout);
 }).then(function () {
-if (!state.started) {
+if (!state.started || state.destroyed || !shouldPlay()) {
 state.looping = false;
 return;
 }
@@ -542,12 +716,12 @@ hardSwapLoopVideos(state, oldIndex, newIndex);
 }
 
 function startLoopMonitor(state) {
-if (!state) return;
-
-stopLoopMonitor(state);
+if (!state || state.destroyed || state.loopFrame || !shouldPlay()) return;
 
 function tick() {
-if (!state.started) return;
+state.loopFrame = null;
+
+if (!state.started || state.destroyed || !shouldPlay()) return;
 
 if (!state.looping) {
 try {
@@ -573,7 +747,7 @@ state.loopFrame = requestAnimationFrame(tick);
 }
 
 function startState(state, restart) {
-if (!state) return Promise.resolve();
+if (!state || state.destroyed) return Promise.resolve();
 
 var timeout = getPrepareTimeout();
 var activeVideo = state.videos[0];
@@ -581,6 +755,7 @@ var standbyVideo = state.videos[1];
 
 stopLoopMonitor(state);
 
+state.lastUsed = performance.now();
 state.started = true;
 state.looping = false;
 state.activeIndex = 0;
@@ -601,15 +776,25 @@ standbyVideo.currentTime = 0;
 applyStateVolumes(state);
 
 return seekSafely(activeVideo, 0, timeout).then(function () {
-if (!state.started) return Promise.resolve();
+return primeStandby(state);
+}).then(function () {
+if (!state.started || state.destroyed) return Promise.resolve();
+
+if (!shouldPlay()) {
+try {
+activeVideo.pause();
+} catch (error) {}
+
+return Promise.resolve();
+}
 
 return playSafely(activeVideo, timeout);
 }).then(function () {
-if (!state.started) return Promise.resolve();
+if (!state.started || state.destroyed || !shouldPlay()) return Promise.resolve();
 
 return waitForFrame(activeVideo, timeout);
 }).then(function () {
-if (!state.started) return;
+if (!state.started || state.destroyed || !shouldPlay()) return;
 
 startLoopMonitor(state);
 });
@@ -627,12 +812,12 @@ function step(now) {
 var t = clamp01((now - start) / duration);
 var eased = t < 0.5 ? 2 * t * t : 1 - Math.pow(-2 * t + 2, 2) / 2;
 
-if (fromState) {
+if (fromState && !fromState.destroyed) {
 fromState.audioGain = 1 - eased;
 applyStateVolumes(fromState);
 }
 
-if (toState) {
+if (toState && !toState.destroyed) {
 toState.audioGain = eased;
 applyStateVolumes(toState);
 }
@@ -640,12 +825,12 @@ applyStateVolumes(toState);
 if (t < 1) {
 environmentAudioFrame = requestAnimationFrame(step);
 } else {
-if (fromState) {
+if (fromState && !fromState.destroyed) {
 fromState.audioGain = 0;
 applyStateVolumes(fromState);
 }
 
-if (toState) {
+if (toState && !toState.destroyed) {
 toState.audioGain = 1;
 applyStateVolumes(toState);
 }
@@ -654,17 +839,31 @@ environmentAudioFrame = null;
 }
 }
 
+if (duration <= 0) {
+if (fromState && !fromState.destroyed) {
+fromState.audioGain = 0;
+applyStateVolumes(fromState);
+}
+
+if (toState && !toState.destroyed) {
+toState.audioGain = 1;
+applyStateVolumes(toState);
+}
+
+return;
+}
+
 environmentAudioFrame = requestAnimationFrame(step);
 }
 
 function fadeEnvironmentVisual(fromState, toState, duration, onDone) {
-if (toState) {
+if (toState && !toState.destroyed) {
 toState.layer.style.transition = "none";
 toState.layer.style.opacity = "1";
 toState.layer.style.zIndex = "2";
 }
 
-if (fromState) {
+if (fromState && !fromState.destroyed) {
 fromState.layer.style.transition = "none";
 fromState.layer.style.opacity = "1";
 fromState.layer.style.zIndex = "3";
@@ -674,18 +873,20 @@ fromState.layer.offsetHeight;
 fromState.layer.style.transition = "opacity " + duration + "ms linear";
 
 requestAnimationFrame(function () {
+if (!fromState.destroyed) {
 fromState.layer.style.opacity = "0";
+}
 });
 }
 
 setTimeout(function () {
-if (fromState) {
+if (fromState && !fromState.destroyed) {
 fromState.layer.style.transition = "none";
 fromState.layer.style.opacity = "0";
 fromState.layer.style.zIndex = "1";
 }
 
-if (toState) {
+if (toState && !toState.destroyed) {
 toState.layer.style.transition = "none";
 toState.layer.style.opacity = "1";
 toState.layer.style.zIndex = "2";
@@ -693,6 +894,15 @@ toState.layer.style.zIndex = "2";
 
 if (onDone) onDone();
 }, duration + 100);
+}
+
+function updatePlaybackForVisibility(immediate) {
+if (shouldPlay()) {
+playAllVisibleVideos();
+fadeViewportAudio(1, false, false);
+} else {
+fadeViewportAudio(0, true, immediate);
+}
 }
 
 function switchEnvironment(env) {
@@ -703,7 +913,7 @@ var lockStart = performance.now();
 var duration = getCrossfadeTime();
 var minimumCooldown = getCssTimeMs(root, "--dlvp-button-cooldown", duration);
 var fromState = currentState;
-var toState = envStates[env];
+var toState = getOrCreateState(env);
 
 lockControls();
 setButtonState(env);
@@ -714,19 +924,23 @@ toState.layer.style.zIndex = "2";
 applyStateVolumes(toState);
 
 startState(toState, true).then(function () {
-if (!toState) return;
+if (!toState || toState.destroyed) {
+unlockControlsAfter(lockStart, minimumCooldown);
+return;
+}
 
 currentEnv = env;
 currentState = toState;
 
 fadeEnvironmentVisual(fromState, toState, duration, function () {
-if (fromState && fromState !== toState) {
+if (fromState && fromState !== toState && !fromState.destroyed) {
 pauseState(fromState, true);
 }
 
 toState.audioGain = 1;
 applyStateVolumes(toState);
 
+pruneStateCache();
 unlockControlsAfter(lockStart, minimumCooldown);
 });
 
@@ -735,7 +949,7 @@ fadeEnvironmentAudio(fromState, toState, duration);
 }
 
 function setInitialEnvironment(env) {
-var state = envStates[env];
+var state = getOrCreateState(env);
 
 currentEnv = env;
 currentState = state;
@@ -747,14 +961,12 @@ state.layer.style.zIndex = "2";
 setButtonState(env);
 
 startState(state, true).then(function () {
+if (state.destroyed) return;
+
 state.audioGain = 1;
 applyStateVolumes(state);
 });
 }
-
-envOrder.forEach(function (env) {
-envStates[env] = createState(env);
-});
 
 buttons.forEach(function (button) {
 var env = button.getAttribute("data-env");
@@ -774,17 +986,19 @@ volumeSlider.addEventListener("input", function () {
 currentVolume = parseFloat(volumeSlider.value) || 0;
 updateSliderFill(root, volumeSlider);
 applyAllVolumes();
+
+if (shouldPlay()) {
 playAllVisibleVideos();
+}
 });
 
 document.addEventListener("visibilitychange", function () {
-if (document.visibilityState === "visible") {
-isVisible = true;
-playAllVisibleVideos();
-fadeViewportAudio(1, false);
+pageVisible = document.visibilityState === "visible";
+
+if (!pageVisible) {
+updatePlaybackForVisibility(true);
 } else {
-isVisible = false;
-fadeViewportAudio(0, true);
+updatePlaybackForVisibility(false);
 }
 });
 
@@ -793,20 +1007,24 @@ var observer = new IntersectionObserver(function (entries) {
 entries.forEach(function (entry) {
 if (entry.target !== root) return;
 
-if (entry.isIntersecting && entry.intersectionRatio > 0.1) {
-isVisible = true;
-playAllVisibleVideos();
-fadeViewportAudio(1, false);
-} else {
-isVisible = false;
-fadeViewportAudio(0, true);
-}
+viewportVisible = entry.isIntersecting && entry.intersectionRatio > 0.1;
+updatePlaybackForVisibility(false);
 });
 }, {
 threshold: [0, 0.1, 0.25, 0.5, 1]
 });
 
 observer.observe(root);
+} else {
+viewportVisible = true;
+}
+
+if (shouldPreloadSources()) {
+runIdle(function () {
+envOrder.forEach(function (env) {
+preloadSource(sources[env]);
+});
+});
 }
 
 updateSliderFill(root, volumeSlider);
@@ -826,13 +1044,25 @@ init: initAll,
 initOne: initRoot
 };
 
+var initQueued = false;
+
+function scheduleInitSoon() {
+if (initQueued) return;
+
+initQueued = true;
+
+requestAnimationFrame(function () {
+initQueued = false;
+initAll();
+});
+}
+
 function scheduleInit() {
 initAll();
 
 setTimeout(initAll, 100);
 setTimeout(initAll, 500);
 setTimeout(initAll, 1200);
-setTimeout(initAll, 2500);
 }
 
 if (document.readyState === "loading") {
@@ -844,8 +1074,25 @@ scheduleInit();
 window.addEventListener("load", scheduleInit);
 
 if ("MutationObserver" in window) {
-var mutationObserver = new MutationObserver(function () {
-initAll();
+var mutationObserver = new MutationObserver(function (mutations) {
+var shouldScan = false;
+
+mutations.forEach(function (mutation) {
+toArray(mutation.addedNodes).forEach(function (node) {
+if (shouldScan || !node || node.nodeType !== 1) return;
+
+if (
+node.matches && node.matches(".dysphoria-level-video-player") ||
+node.querySelector && node.querySelector(".dysphoria-level-video-player")
+) {
+shouldScan = true;
+}
+});
+});
+
+if (shouldScan) {
+scheduleInitSoon();
+}
 });
 
 mutationObserver.observe(document.documentElement, {
