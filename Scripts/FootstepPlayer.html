@@ -1,0 +1,1087 @@
+<div
+class="dysphoria-footstep-player"
+data-default-surface="wood"
+data-default-volume="0"
+data-default-wetness="0"
+data-default-speed="1"
+
+data-black-underlay-color="rgb(0 0 0)"
+data-black-underlay-opacity="1"
+
+data-animation-src="https://msdysphoria.github.io/Personal-Storage/Video/Walk-Anim.webm"
+data-animation-speed-multiplier="1"
+data-animation-min-speed="0.1"
+data-animation-max-speed="4"
+data-animation-scale="0.85"
+data-animation-scale-x="1"
+data-animation-scale-y="1"
+data-animation-position-y="0"
+data-animation-transform-origin="center center"
+
+data-floor-wood-image-src="https://msdysphoria.github.io/Personal-Storage/Texture/Wooden_Floor.webp"
+data-floor-dirt-image-src="https://msdysphoria.github.io/Personal-Storage/Texture/Dirt_Floor.webp"
+data-floor-concrete-image-src="https://msdysphoria.github.io/Personal-Storage/Texture/Concrete_Floor.webp"
+data-floor-image-size="auto 25%"
+data-floor-image-repeat="repeat-x"
+data-floor-image-position-y="bottom"
+data-floor-image-offset-y="0"
+data-floor-image-scale-y="1"
+data-floor-image-transform-origin="center bottom"
+data-floor-image-opacity="1"
+data-floor-image-blend-mode="normal"
+data-floor-scroll-at-min-speed="-24"
+data-floor-scroll-at-mid-speed="-32"
+data-floor-scroll-at-max-speed="-64"
+
+data-wet-image-src="https://msdysphoria.github.io/Personal-Storage/Texture/Wet_Overlay.webp"
+data-wet-image-size="auto 25%"
+data-wet-image-repeat="repeat-x"
+data-wet-image-position-y="bottom"
+data-wet-image-offset-y="0"
+data-wet-image-scale-y="1"
+data-wet-image-transform-origin="center bottom"
+data-wet-image-max-opacity="0.6"
+data-wet-image-blend-mode="overlay"
+data-wet-image-scroll-at-min-speed="-24"
+data-wet-image-scroll-at-mid-speed="-32"
+data-wet-image-scroll-at-max-speed="-64"
+
+data-animation-total-frames="60"
+data-animation-frame-base="1"
+data-animation-trigger-frames="21,49"
+
+data-speed-min="0.75"
+data-speed-mid="1"
+data-speed-max="2"
+
+data-footstep-pitch-at-min-speed="0.9"
+data-footstep-pitch-at-mid-speed="1"
+data-footstep-pitch-at-max-speed="1.2"
+
+data-wet-pitch-at-min-speed="0.85"
+data-wet-pitch-at-mid-speed="1"
+data-wet-pitch-at-max-speed="1.15"
+
+data-creak-pitch-at-min-speed="0.85"
+data-creak-pitch-at-mid-speed="1"
+data-creak-pitch-at-max-speed="1.15"
+
+data-footstep-volume-at-min-speed="0.5"
+data-footstep-volume-at-mid-speed="0.75"
+data-footstep-volume-at-max-speed="1"
+
+data-wet-volume-at-min-speed="0.5"
+data-wet-volume-at-mid-speed="0.75"
+data-wet-volume-at-max-speed="1"
+
+data-creak-volume-at-min-speed="0.5"
+data-creak-volume-at-mid-speed="0.75"
+data-creak-volume-at-max-speed="1"
+
+data-wet-full-chance-at="0.3"
+data-wet-volume-multiplier="0.85"
+
+data-creak-chance-at-min-speed="0"
+data-creak-chance-at-mid-speed="0.15"
+data-creak-chance-at-max-speed="0.30"
+data-creak-volume-multiplier="0.8"
+data-creak-delay-min="0"
+data-creak-delay-max="0.08"
+>
+<div class="dfp-panel">
+<div class="dfp-controls">
+<div class="dfp-title">Footstep Audio</div>
+
+<label class="dfp-check-row" data-wood-only>
+<input class="dfp-creak" type="checkbox">
+<span>Wood Creak</span>
+</label>
+
+<div class="dfp-row">
+<div class="dfp-label">Surface</div>
+<div class="dfp-surface-buttons">
+<button class="dfp-surface-button dfp-active" type="button" data-surface="wood">Wood</button>
+<button class="dfp-surface-button" type="button" data-surface="dirt">Dirt</button>
+<button class="dfp-surface-button" type="button" data-surface="concrete">Concrete</button>
+</div>
+</div>
+
+<div class="dfp-slider-row">
+<div class="dfp-slider-label">
+<span>Volume</span>
+<span class="dfp-value" data-value="volume">0%</span>
+</div>
+<input class="dfp-slider dfp-volume" type="range" min="0" max="1" step="0.01" value="0">
+</div>
+
+<div class="dfp-slider-row">
+<div class="dfp-slider-label">
+<span>Wetness</span>
+<span class="dfp-value" data-value="wetness">0%</span>
+</div>
+<input class="dfp-slider dfp-wetness" type="range" min="0" max="1" step="0.01" value="0">
+</div>
+
+<div class="dfp-slider-row">
+<div class="dfp-slider-label">
+<span>Speed</span>
+<span class="dfp-value" data-value="speed">1.00x</span>
+</div>
+<input class="dfp-slider dfp-speed" type="range" min="0.5" max="2" step="0.01" value="1">
+</div>
+</div>
+
+<div class="dfp-video-panel">
+<div class="dfp-video-frame">
+<div class="dfp-black-underlay"></div>
+<div class="dfp-floor-image-layer"></div>
+<div class="dfp-wet-image-layer"></div>
+<video class="dfp-animation-video" muted loop playsinline preload="auto"></video>
+<div class="dfp-video-placeholder">Animation Preview</div>
+</div>
+</div>
+</div>
+</div>
+
+<style>
+.dysphoria-footstep-player {
+--dfp-bg: rgb(13 13 13 / 78%);
+--dfp-border: rgb(120 88 49 / 68%);
+--dfp-border-soft: rgb(120 88 49 / 34%);
+--dfp-text: rgb(196 181 169 / 86%);
+--dfp-text-soft: rgb(155 143 137 / 68%);
+--dfp-accent: rgb(159 71 17);
+--dfp-accent-soft: rgb(159 71 17 / 35%);
+--dfp-button-bg: rgb(19 19 19 / 78%);
+--dfp-button-active-bg: rgb(74 37 19 / 78%);
+--dfp-button-active-border: rgb(244 190 148 / 72%);
+--dfp-slider-track-bg: rgb(19 19 19 / 82%);
+--dfp-slider-track-border: rgb(120 88 49 / 45%);
+--dfp-slider-fill: rgb(159 71 17);
+--dfp-slider-knob-bg: linear-gradient(135deg, rgb(255 190 91), rgb(159 71 17));
+--dfp-slider-knob-border: rgb(244 190 148 / 58%);
+--dfp-slider-knob-shadow: 0 0 0 1px rgb(0 0 0 / 55%), 0 0 9px rgb(159 71 17 / 55%);
+
+--dfp-video-width: 10rem;
+--dfp-video-height: 10rem;
+--dfp-video-bg:
+linear-gradient(45deg, rgb(255 255 255 / 4%) 25%, transparent 25%),
+linear-gradient(-45deg, rgb(255 255 255 / 4%) 25%, transparent 25%),
+linear-gradient(45deg, transparent 75%, rgb(255 255 255 / 4%) 75%),
+linear-gradient(-45deg, transparent 75%, rgb(255 255 255 / 4%) 75%);
+--dfp-video-bg-size: 1rem 1rem;
+--dfp-video-bg-position: 0 0, 0 0.5rem, 0.5rem -0.5rem, -0.5rem 0;
+
+width: 100%;
+box-sizing: border-box;
+font-family: inherit;
+color: var(--dfp-text);
+}
+
+.dysphoria-footstep-player * {
+box-sizing: border-box;
+}
+
+.dfp-panel {
+width: 100%;
+padding: 0.75rem;
+border: 1px solid var(--dfp-border);
+background: var(--dfp-bg);
+display: grid;
+grid-template-columns: minmax(0, 1fr) var(--dfp-video-width);
+gap: 0.85rem;
+align-items: stretch;
+}
+
+.dfp-controls {
+position: relative;
+display: grid;
+gap: 0.7rem;
+min-width: 0;
+}
+
+.dfp-title {
+font-size: 0.9rem;
+letter-spacing: 0.04em;
+text-transform: uppercase;
+color: var(--dfp-text);
+padding-right: 7rem;
+}
+
+.dfp-row {
+display: grid;
+gap: 0.4rem;
+}
+
+.dfp-label,
+.dfp-slider-label {
+font-size: 0.8rem;
+color: var(--dfp-text-soft);
+}
+
+.dfp-slider-label {
+display: flex;
+align-items: center;
+justify-content: space-between;
+gap: 0.75rem;
+}
+
+.dfp-surface-buttons {
+display: grid;
+grid-template-columns: repeat(3, 1fr);
+gap: 0.4rem;
+}
+
+.dfp-surface-button {
+height: 2rem;
+border: 1px solid var(--dfp-border-soft);
+background: var(--dfp-button-bg);
+color: var(--dfp-text-soft);
+font: inherit;
+font-size: 0.8rem;
+cursor: pointer;
+transition:
+opacity 180ms ease,
+transform 180ms ease,
+border-color 180ms ease,
+background 180ms ease,
+color 180ms ease,
+box-shadow 180ms ease;
+}
+
+.dfp-surface-button:hover {
+transform: translateY(-1px);
+color: var(--dfp-text);
+border-color: var(--dfp-border);
+}
+
+.dfp-surface-button.dfp-active {
+background: var(--dfp-button-active-bg);
+border-color: var(--dfp-button-active-border);
+color: var(--dfp-text);
+box-shadow: 0 0 0 1px var(--dfp-accent-soft), 0 0 14px rgb(159 71 17 / 22%);
+}
+
+.dfp-check-row {
+position: absolute;
+top: 0;
+right: 0;
+display: flex;
+align-items: center;
+gap: 0.45rem;
+font-size: 0.82rem;
+color: var(--dfp-text-soft);
+cursor: pointer;
+user-select: none;
+opacity: 0;
+visibility: hidden;
+pointer-events: none;
+transition:
+opacity 180ms ease,
+visibility 180ms ease;
+}
+
+.dysphoria-footstep-player.dfp-wood-selected .dfp-check-row {
+opacity: 1;
+visibility: visible;
+pointer-events: auto;
+}
+
+.dfp-check-row input {
+appearance: none;
+-webkit-appearance: none;
+width: 1rem;
+height: 1rem;
+border: 1px solid var(--dfp-border-soft);
+background: rgb(19 19 19 / 82%);
+cursor: pointer;
+position: relative;
+}
+
+.dfp-check-row input:checked {
+border-color: var(--dfp-button-active-border);
+background: var(--dfp-accent);
+box-shadow: 0 0 9px rgb(159 71 17 / 45%);
+}
+
+.dfp-check-row input:checked::after {
+content: "";
+position: absolute;
+left: 0.27rem;
+top: 0.08rem;
+width: 0.28rem;
+height: 0.55rem;
+border: solid rgb(255 225 190 / 95%);
+border-width: 0 0.12rem 0.12rem 0;
+transform: rotate(45deg);
+}
+
+.dfp-slider-row {
+display: grid;
+gap: 0.35rem;
+}
+
+.dfp-slider {
+width: 100%;
+height: 1rem;
+appearance: none;
+-webkit-appearance: none;
+background: transparent;
+cursor: pointer;
+padding: 0;
+margin: 0;
+--dfp-fill-percent: 0%;
+}
+
+.dfp-slider:focus {
+outline: none;
+}
+
+.dfp-slider::-webkit-slider-runnable-track {
+height: 0.24rem;
+border: 1px solid var(--dfp-slider-track-border);
+background:
+linear-gradient(
+90deg,
+var(--dfp-slider-fill) 0%,
+var(--dfp-slider-fill) var(--dfp-fill-percent),
+var(--dfp-slider-track-bg) var(--dfp-fill-percent),
+var(--dfp-slider-track-bg) 100%
+);
+}
+
+.dfp-slider::-webkit-slider-thumb {
+-webkit-appearance: none;
+appearance: none;
+width: 0.88rem;
+height: 0.88rem;
+margin-top: calc((0.24rem - 0.88rem) / 2);
+border-radius: 999px;
+border: 1px solid var(--dfp-slider-knob-border);
+background: var(--dfp-slider-knob-bg);
+box-shadow: var(--dfp-slider-knob-shadow);
+}
+
+.dfp-slider::-moz-range-track {
+height: 0.24rem;
+border: 1px solid var(--dfp-slider-track-border);
+background: var(--dfp-slider-track-bg);
+}
+
+.dfp-slider::-moz-range-progress {
+height: 0.24rem;
+background: var(--dfp-slider-fill);
+}
+
+.dfp-slider::-moz-range-thumb {
+width: 0.88rem;
+height: 0.88rem;
+border-radius: 999px;
+border: 1px solid var(--dfp-slider-knob-border);
+background: var(--dfp-slider-knob-bg);
+box-shadow: var(--dfp-slider-knob-shadow);
+}
+
+.dfp-video-panel {
+width: var(--dfp-video-width);
+min-width: var(--dfp-video-width);
+display: flex;
+align-items: stretch;
+justify-content: center;
+}
+
+.dfp-video-frame {
+position: relative;
+width: var(--dfp-video-width);
+height: 100%;
+min-height: var(--dfp-video-height);
+overflow: hidden;
+border: 1px solid var(--dfp-border-soft);
+background-color: rgb(0 0 0 / 35%);
+background-image: var(--dfp-video-bg);
+background-size: var(--dfp-video-bg-size);
+background-position: var(--dfp-video-bg-position);
+display: flex;
+align-items: center;
+justify-content: center;
+}
+
+.dfp-black-underlay,
+.dfp-floor-image-layer,
+.dfp-wet-image-layer,
+.dfp-animation-video {
+position: absolute;
+inset: 0;
+width: 100%;
+height: 100%;
+display: block;
+pointer-events: none;
+}
+
+.dfp-black-underlay {
+z-index: 0;
+background: rgb(0 0 0);
+opacity: 1;
+}
+
+.dfp-floor-image-layer {
+z-index: 1;
+opacity: 0;
+background-repeat: repeat-x;
+background-size: auto 100%;
+background-position: 0 center;
+}
+
+.dfp-wet-image-layer {
+z-index: 2;
+opacity: 0;
+background-repeat: repeat-x;
+background-size: auto 100%;
+background-position: 0 center;
+}
+
+.dfp-animation-video {
+z-index: 3;
+object-fit: contain;
+object-position: center center;
+transform-origin: center center;
+}
+
+.dfp-video-placeholder {
+position: relative;
+z-index: 4;
+padding: 0.55rem;
+text-align: center;
+font-size: 0.72rem;
+letter-spacing: 0.03em;
+text-transform: uppercase;
+color: rgb(155 143 137 / 45%);
+}
+
+.dysphoria-footstep-player.dfp-has-video .dfp-video-placeholder {
+display: none;
+}
+</style>
+
+<script>
+(function () {
+var players = document.querySelectorAll(".dysphoria-footstep-player");
+
+players.forEach(function (root) {
+if (root.dataset.dfpReady === "true") return;
+root.dataset.dfpReady = "true";
+
+var soundLists = {
+wood: [
+"https://msdysphoria.github.io/Personal-Storage/Sound%20FX/Footstep_Wood_1.ogg",
+"https://msdysphoria.github.io/Personal-Storage/Sound%20FX/Footstep_Wood_2.ogg",
+"https://msdysphoria.github.io/Personal-Storage/Sound%20FX/Footstep_Wood_3.ogg",
+"https://msdysphoria.github.io/Personal-Storage/Sound%20FX/Footstep_Wood_4.ogg",
+"https://msdysphoria.github.io/Personal-Storage/Sound%20FX/Footstep_Wood_5.ogg",
+"https://msdysphoria.github.io/Personal-Storage/Sound%20FX/Footstep_Wood_6.ogg"
+],
+dirt: [
+"https://msdysphoria.github.io/Personal-Storage/Sound%20FX/Footstep_Dirt_1.ogg",
+"https://msdysphoria.github.io/Personal-Storage/Sound%20FX/Footstep_Dirt_2.ogg",
+"https://msdysphoria.github.io/Personal-Storage/Sound%20FX/Footstep_Dirt_3.ogg",
+"https://msdysphoria.github.io/Personal-Storage/Sound%20FX/Footstep_Dirt_4.ogg"
+],
+concrete: [
+"https://msdysphoria.github.io/Personal-Storage/Sound%20FX/Footstep_Concrete_1.ogg",
+"https://msdysphoria.github.io/Personal-Storage/Sound%20FX/Footstep_Concrete_2.ogg",
+"https://msdysphoria.github.io/Personal-Storage/Sound%20FX/Footstep_Concrete_3.ogg",
+"https://msdysphoria.github.io/Personal-Storage/Sound%20FX/Footstep_Concrete_4.ogg"
+],
+wet: [
+"https://msdysphoria.github.io/Personal-Storage/Sound%20FX/Footstep_Wet_1.ogg",
+"https://msdysphoria.github.io/Personal-Storage/Sound%20FX/Footstep_Wet_2.ogg",
+"https://msdysphoria.github.io/Personal-Storage/Sound%20FX/Footstep_Wet_3.ogg",
+"https://msdysphoria.github.io/Personal-Storage/Sound%20FX/Footstep_Wet_4.ogg",
+"https://msdysphoria.github.io/Personal-Storage/Sound%20FX/Footstep_Wet_5.ogg",
+"https://msdysphoria.github.io/Personal-Storage/Sound%20FX/Footstep_Wet_6.ogg",
+"https://msdysphoria.github.io/Personal-Storage/Sound%20FX/Footstep_Wet_7.ogg",
+"https://msdysphoria.github.io/Personal-Storage/Sound%20FX/Footstep_Wet_8.ogg",
+"https://msdysphoria.github.io/Personal-Storage/Sound%20FX/Footstep_Wet_9.ogg",
+"https://msdysphoria.github.io/Personal-Storage/Sound%20FX/Footstep_Wet_10.ogg"
+],
+creak: [
+"https://msdysphoria.github.io/Personal-Storage/Sound%20FX/Footstep_Creak_1.ogg",
+"https://msdysphoria.github.io/Personal-Storage/Sound%20FX/Footstep_Creak_2.ogg",
+"https://msdysphoria.github.io/Personal-Storage/Sound%20FX/Footstep_Creak_3.ogg"
+]
+};
+
+var buttons = Array.prototype.slice.call(root.querySelectorAll(".dfp-surface-button"));
+var creakBox = root.querySelector(".dfp-creak");
+var volumeSlider = root.querySelector(".dfp-volume");
+var wetnessSlider = root.querySelector(".dfp-wetness");
+var speedSlider = root.querySelector(".dfp-speed");
+var animationVideo = root.querySelector(".dfp-animation-video");
+var floorLayer = root.querySelector(".dfp-floor-image-layer");
+var wetLayer = root.querySelector(".dfp-wet-image-layer");
+var blackUnderlay = root.querySelector(".dfp-black-underlay");
+
+var volumeValue = root.querySelector('[data-value="volume"]');
+var wetnessValue = root.querySelector('[data-value="wetness"]');
+var speedValue = root.querySelector('[data-value="speed"]');
+
+var currentSurface = root.dataset.defaultSurface || "wood";
+var pools = {};
+var lastPlayed = {};
+
+var frameMonitor = null;
+var lastFrame = null;
+var firedThisLoop = {};
+var isAudioArmed = false;
+
+var floorOffsetX = 0;
+var wetOffsetX = 0;
+var lastVisualTime = 0;
+
+function dataNumber(name, fallback) {
+var value = parseFloat(root.dataset[name]);
+return Number.isFinite(value) ? value : fallback;
+}
+
+function dataText(name, fallback) {
+var value = root.dataset[name];
+return value === undefined || value === "" ? fallback : value;
+}
+
+function clamp(value, min, max) {
+return Math.max(min, Math.min(max, value));
+}
+
+function lerp(a, b, t) {
+return a + ((b - a) * t);
+}
+
+function getSpeed() {
+return parseFloat(speedSlider.value) || 1;
+}
+
+function usableSource(src) {
+if (!src) return false;
+if (src.indexOf("PASTE_") === 0) return false;
+return true;
+}
+
+function imageUrl(src) {
+return 'url("' + src.replace(/"/g, "%22") + '")';
+}
+
+function getSurfaceImageSrc(surface) {
+if (surface === "wood") return root.dataset.floorWoodImageSrc || "";
+if (surface === "dirt") return root.dataset.floorDirtImageSrc || "";
+if (surface === "concrete") return root.dataset.floorConcreteImageSrc || "";
+return "";
+}
+
+function getTotalFrames() {
+return Math.max(1, Math.round(dataNumber("animationTotalFrames", 60)));
+}
+
+function getFrameBase() {
+return Math.round(dataNumber("animationFrameBase", 1));
+}
+
+function getTriggerFrames() {
+var raw = root.dataset.animationTriggerFrames || "21,49";
+
+return raw.split(",").map(function (item) {
+return parseInt(item.trim(), 10);
+}).filter(function (value) {
+return Number.isFinite(value);
+});
+}
+
+function getCurrentVideoFrame() {
+if (!animationVideo) return getFrameBase();
+
+var totalFrames = getTotalFrames();
+var base = getFrameBase();
+var duration = animationVideo.duration;
+var time = animationVideo.currentTime || 0;
+
+if (!Number.isFinite(duration) || duration <= 0) {
+return base;
+}
+
+var normalized = clamp(time / duration, 0, 0.999999);
+var zeroBasedFrame = Math.floor(normalized * totalFrames);
+
+return base + zeroBasedFrame;
+}
+
+function crossedFrame(target, previous, current, looped) {
+if (previous === null) return false;
+
+if (looped) {
+return target > previous || target <= current;
+}
+
+return target > previous && target <= current;
+}
+
+function getSpeedMappedValue(prefix, fallbackMin, fallbackMid, fallbackMax) {
+var speed = getSpeed();
+
+var speedMin = dataNumber("speedMin", 0.5);
+var speedMid = dataNumber("speedMid", 1);
+var speedMax = dataNumber("speedMax", 2);
+
+var valueMin = dataNumber(prefix + "AtMinSpeed", fallbackMin);
+var valueMid = dataNumber(prefix + "AtMidSpeed", fallbackMid);
+var valueMax = dataNumber(prefix + "AtMaxSpeed", fallbackMax);
+
+if (speed <= speedMid) {
+return lerp(valueMin, valueMid, clamp((speed - speedMin) / (speedMid - speedMin), 0, 1));
+}
+
+return lerp(valueMid, valueMax, clamp((speed - speedMid) / (speedMax - speedMid), 0, 1));
+}
+
+function getFootstepPitch() {
+return getSpeedMappedValue("footstepPitch", 0.9, 1, 1.2);
+}
+
+function getWetPitch() {
+return getSpeedMappedValue("wetPitch", 0.85, 1, 1.15);
+}
+
+function getCreakPitch() {
+return getSpeedMappedValue("creakPitch", 0.85, 1, 1.15);
+}
+
+function getFootstepSpeedVolume() {
+return getSpeedMappedValue("footstepVolume", 0.5, 0.75, 1);
+}
+
+function getWetSpeedVolume() {
+return getSpeedMappedValue("wetVolume", 0.5, 0.75, 1);
+}
+
+function getCreakSpeedVolume() {
+return getSpeedMappedValue("creakVolume", 0.5, 0.75, 1);
+}
+
+function getWetChance() {
+var wetness = parseFloat(wetnessSlider.value) || 0;
+var fullAt = dataNumber("wetFullChanceAt", 0.3);
+return clamp(wetness / fullAt, 0, 1);
+}
+
+function getCreakChance() {
+return getSpeedMappedValue("creakChance", 0, 0.15, 0.3);
+}
+
+function getAnimationSpeed() {
+var multiplier = dataNumber("animationSpeedMultiplier", 1);
+var min = dataNumber("animationMinSpeed", 0.1);
+var max = dataNumber("animationMaxSpeed", 4);
+
+return clamp(getSpeed() * multiplier, min, max);
+}
+
+function getFloorScrollSpeed() {
+return getSpeedMappedValue("floorScroll", -16, -32, -64);
+}
+
+function getWetImageScrollSpeed() {
+return getSpeedMappedValue("wetImageScroll", -12, -24, -48);
+}
+
+function updateBlackUnderlay() {
+if (!blackUnderlay) return;
+
+blackUnderlay.style.background = dataText("blackUnderlayColor", "rgb(0 0 0)");
+blackUnderlay.style.opacity = String(clamp(dataNumber("blackUnderlayOpacity", 1), 0, 1));
+}
+
+function updateAnimationTransform() {
+if (!animationVideo) return;
+
+var scale = dataNumber("animationScale", 1);
+var scaleX = dataNumber("animationScaleX", 1) * scale;
+var scaleY = dataNumber("animationScaleY", 1) * scale;
+var positionY = dataText("animationPositionY", "0");
+
+animationVideo.style.transform = "translateY(" + positionY + ") scale(" + scaleX + ", " + scaleY + ")";
+animationVideo.style.transformOrigin = dataText("animationTransformOrigin", "center center");
+}
+
+function setupAnimationVideo() {
+if (!animationVideo) return;
+
+var src = root.dataset.animationSrc || "";
+
+if (!usableSource(src)) {
+animationVideo.removeAttribute("src");
+animationVideo.style.display = "none";
+root.classList.remove("dfp-has-animation-video");
+return;
+}
+
+animationVideo.src = src;
+animationVideo.muted = true;
+animationVideo.loop = true;
+animationVideo.playsInline = true;
+animationVideo.setAttribute("muted", "");
+animationVideo.setAttribute("playsinline", "");
+animationVideo.preload = "auto";
+animationVideo.style.display = "block";
+root.classList.add("dfp-has-animation-video");
+
+updateAnimationTransform();
+updateAnimationSpeed();
+
+try {
+animationVideo.load();
+
+var promise = animationVideo.play();
+
+if (promise && promise.catch) {
+promise.catch(function () {});
+}
+} catch (error) {}
+}
+
+function updateAnimationSpeed() {
+if (!animationVideo || !animationVideo.src) return;
+
+try {
+animationVideo.playbackRate = getAnimationSpeed();
+
+var promise = animationVideo.play();
+
+if (promise && promise.catch) {
+promise.catch(function () {});
+}
+} catch (error) {}
+}
+
+function updateVideoPlaceholderState() {
+var hasFloor = floorLayer && usableSource(getSurfaceImageSrc(currentSurface));
+var hasWet = wetLayer && usableSource(root.dataset.wetImageSrc || "");
+var hasAnim = root.classList.contains("dfp-has-animation-video");
+
+root.classList.toggle("dfp-has-video", hasFloor || hasWet || hasAnim);
+}
+
+function updateFloorLayer() {
+if (!floorLayer) return;
+
+var src = getSurfaceImageSrc(currentSurface);
+
+if (!usableSource(src)) {
+floorLayer.style.backgroundImage = "none";
+floorLayer.style.opacity = "0";
+return;
+}
+
+var offsetY = dataText("floorImageOffsetY", "0");
+var scaleY = dataNumber("floorImageScaleY", 1);
+
+floorLayer.style.backgroundImage = imageUrl(src);
+floorLayer.style.backgroundRepeat = dataText("floorImageRepeat", "repeat-x");
+floorLayer.style.backgroundSize = dataText("floorImageSize", "auto 100%");
+floorLayer.style.mixBlendMode = dataText("floorImageBlendMode", "normal");
+floorLayer.style.opacity = String(clamp(dataNumber("floorImageOpacity", 1), 0, 1));
+floorLayer.style.transform = "translateY(" + offsetY + ") scaleY(" + scaleY + ")";
+floorLayer.style.transformOrigin = dataText("floorImageTransformOrigin", "center bottom");
+}
+
+function updateWetLayer() {
+if (!wetLayer) return;
+
+var src = root.dataset.wetImageSrc || "";
+
+if (!usableSource(src)) {
+wetLayer.style.backgroundImage = "none";
+wetLayer.style.opacity = "0";
+return;
+}
+
+var wetness = parseFloat(wetnessSlider.value) || 0;
+var maxOpacity = clamp(dataNumber("wetImageMaxOpacity", 1), 0, 1);
+var offsetY = dataText("wetImageOffsetY", "0");
+var scaleY = dataNumber("wetImageScaleY", 1);
+
+wetLayer.style.backgroundImage = imageUrl(src);
+wetLayer.style.backgroundRepeat = dataText("wetImageRepeat", "repeat-x");
+wetLayer.style.backgroundSize = dataText("wetImageSize", "auto 100%");
+wetLayer.style.mixBlendMode = dataText("wetImageBlendMode", "soft-light");
+wetLayer.style.opacity = String(clamp(wetness, 0, 1) * maxOpacity);
+wetLayer.style.transform = "translateY(" + offsetY + ") scaleY(" + scaleY + ")";
+wetLayer.style.transformOrigin = dataText("wetImageTransformOrigin", "center bottom");
+}
+
+function updateMovingImagePositions(deltaSeconds) {
+var floorY = dataText("floorImagePositionY", "center");
+var wetY = dataText("wetImagePositionY", "center");
+
+floorOffsetX += getFloorScrollSpeed() * deltaSeconds;
+wetOffsetX += getWetImageScrollSpeed() * deltaSeconds;
+
+if (floorLayer) {
+floorLayer.style.backgroundPosition = floorOffsetX.toFixed(2) + "px " + floorY;
+}
+
+if (wetLayer) {
+wetLayer.style.backgroundPosition = wetOffsetX.toFixed(2) + "px " + wetY;
+}
+}
+
+function resetFrameState() {
+lastFrame = null;
+firedThisLoop = {};
+}
+
+function startFrameMonitor() {
+if (frameMonitor) return;
+
+resetFrameState();
+lastVisualTime = performance.now();
+
+function tick(now) {
+var deltaSeconds = Math.max(0, Math.min(0.1, (now - lastVisualTime) / 1000));
+lastVisualTime = now;
+
+updateMovingImagePositions(deltaSeconds);
+
+if (animationVideo && animationVideo.src && animationVideo.style.display !== "none") {
+var currentFrame = getCurrentVideoFrame();
+var looped = false;
+
+if (lastFrame !== null && currentFrame < lastFrame) {
+looped = true;
+firedThisLoop = {};
+}
+
+if (isAudioArmed) {
+getTriggerFrames().forEach(function (targetFrame) {
+if (!firedThisLoop[targetFrame] && crossedFrame(targetFrame, lastFrame, currentFrame, looped)) {
+firedThisLoop[targetFrame] = true;
+playFootstepOnce();
+}
+});
+}
+
+lastFrame = currentFrame;
+}
+
+frameMonitor = requestAnimationFrame(tick);
+}
+
+frameMonitor = requestAnimationFrame(tick);
+}
+
+function randomItem(list, group) {
+if (!list || !list.length) return null;
+
+if (list.length === 1) return list[0];
+
+var picked = list[Math.floor(Math.random() * list.length)];
+
+if (lastPlayed[group] && picked === lastPlayed[group]) {
+picked = list[Math.floor(Math.random() * list.length)];
+}
+
+lastPlayed[group] = picked;
+return picked;
+}
+
+function createAudioPool(urls, count) {
+var result = [];
+
+urls.forEach(function (url) {
+for (var i = 0; i < count; i++) {
+var audio = new Audio(url);
+audio.preload = "auto";
+result.push(audio);
+}
+});
+
+return result;
+}
+
+function preparePools() {
+Object.keys(soundLists).forEach(function (key) {
+pools[key] = createAudioPool(soundLists[key], 3);
+});
+}
+
+function sameUrl(audio, url) {
+var encoded = url.replace(/ /g, "%20");
+return audio.src.indexOf(encoded) !== -1;
+}
+
+function getAudioFromPool(url, group) {
+var pool = pools[group] || [];
+
+for (var i = 0; i < pool.length; i++) {
+if (sameUrl(pool[i], url) && pool[i].paused) {
+return pool[i];
+}
+}
+
+var audio = new Audio(url);
+audio.preload = "auto";
+pool.push(audio);
+pools[group] = pool;
+return audio;
+}
+
+function playClip(url, group, volume, pitch) {
+if (!url || volume <= 0) return;
+
+var audio = getAudioFromPool(url, group);
+
+try {
+audio.pause();
+audio.currentTime = 0;
+audio.volume = clamp(volume, 0, 1);
+audio.playbackRate = clamp(pitch || 1, 0.25, 4);
+audio.preservesPitch = false;
+audio.mozPreservesPitch = false;
+audio.webkitPreservesPitch = false;
+audio.play().catch(function () {});
+} catch (error) {}
+}
+
+function playFootstepOnce() {
+var sliderVolume = parseFloat(volumeSlider.value) || 0;
+var wetness = parseFloat(wetnessSlider.value) || 0;
+
+if (sliderVolume <= 0) return;
+
+var surfaceList = soundLists[currentSurface] || soundLists.wood;
+var footstepUrl = randomItem(surfaceList, currentSurface);
+var footstepVolume = sliderVolume * getFootstepSpeedVolume();
+
+playClip(footstepUrl, currentSurface, footstepVolume, getFootstepPitch());
+
+if (wetness > 0 && Math.random() <= getWetChance()) {
+var wetUrl = randomItem(soundLists.wet, "wet");
+var wetBaseGain = dataNumber("wetVolumeMultiplier", 0.85);
+var wetVolume = sliderVolume * wetBaseGain * getWetSpeedVolume();
+
+playClip(wetUrl, "wet", wetVolume, getWetPitch());
+}
+
+if (currentSurface === "wood" && creakBox.checked && Math.random() <= getCreakChance()) {
+var creakUrl = randomItem(soundLists.creak, "creak");
+var creakBaseGain = dataNumber("creakVolumeMultiplier", 0.8);
+var creakVolume = sliderVolume * creakBaseGain * getCreakSpeedVolume();
+var delayMin = dataNumber("creakDelayMin", 0);
+var delayMax = dataNumber("creakDelayMax", 0.08);
+var delay = lerp(delayMin, delayMax, Math.random()) * 1000;
+
+setTimeout(function () {
+if (!isAudioArmed) return;
+playClip(creakUrl, "creak", creakVolume, getCreakPitch());
+}, delay);
+}
+}
+
+function updateSlider(slider) {
+var min = parseFloat(slider.min || "0");
+var max = parseFloat(slider.max || "1");
+var value = parseFloat(slider.value || "0");
+var percent = 0;
+
+if (max > min) {
+percent = ((value - min) / (max - min)) * 100;
+}
+
+slider.style.setProperty("--dfp-fill-percent", percent + "%");
+}
+
+function updateUI() {
+buttons.forEach(function (button) {
+button.classList.toggle("dfp-active", button.dataset.surface === currentSurface);
+});
+
+root.classList.toggle("dfp-wood-selected", currentSurface === "wood");
+
+volumeValue.textContent = Math.round((parseFloat(volumeSlider.value) || 0) * 100) + "%";
+wetnessValue.textContent = Math.round((parseFloat(wetnessSlider.value) || 0) * 100) + "%";
+speedValue.textContent = (parseFloat(speedSlider.value) || 1).toFixed(2) + "x";
+
+updateSlider(volumeSlider);
+updateSlider(wetnessSlider);
+updateSlider(speedSlider);
+
+updateBlackUnderlay();
+updateAnimationTransform();
+updateFloorLayer();
+updateWetLayer();
+updateVideoPlaceholderState();
+}
+
+buttons.forEach(function (button) {
+button.addEventListener("click", function () {
+currentSurface = button.dataset.surface || "wood";
+updateUI();
+});
+});
+
+volumeSlider.addEventListener("input", function () {
+var volume = parseFloat(volumeSlider.value) || 0;
+
+isAudioArmed = volume > 0;
+updateUI();
+});
+
+wetnessSlider.addEventListener("input", function () {
+updateUI();
+});
+
+speedSlider.addEventListener("input", function () {
+updateUI();
+updateAnimationSpeed();
+});
+
+creakBox.addEventListener("change", function () {
+updateUI();
+});
+
+if (animationVideo) {
+animationVideo.addEventListener("loadedmetadata", function () {
+resetFrameState();
+updateAnimationSpeed();
+
+try {
+var promise = animationVideo.play();
+
+if (promise && promise.catch) {
+promise.catch(function () {});
+}
+} catch (error) {}
+});
+
+animationVideo.addEventListener("play", function () {
+resetFrameState();
+});
+
+animationVideo.addEventListener("seeked", function () {
+resetFrameState();
+});
+}
+
+volumeSlider.value = root.dataset.defaultVolume || "0";
+wetnessSlider.value = root.dataset.defaultWetness || "0";
+speedSlider.value = root.dataset.defaultSpeed || "1";
+speedSlider.min = root.dataset.speedMin || "0.5";
+speedSlider.max = root.dataset.speedMax || "2";
+
+preparePools();
+setupAnimationVideo();
+updateUI();
+updateAnimationSpeed();
+
+isAudioArmed = (parseFloat(volumeSlider.value) || 0) > 0;
+startFrameMonitor();
+});
+})();
+</script>
