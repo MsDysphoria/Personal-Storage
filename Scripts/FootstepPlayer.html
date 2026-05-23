@@ -31,6 +31,8 @@ data-floor-image-scale-y="1"
 data-floor-image-transform-origin="center bottom"
 data-floor-image-opacity="1"
 data-floor-image-blend-mode="normal"
+data-floor-transition-ms="450"
+data-floor-transition-easing="ease"
 data-floor-scroll-at-min-speed="-48"
 data-floor-scroll-at-mid-speed="-64"
 data-floor-scroll-at-max-speed="-128"
@@ -52,6 +54,17 @@ data-animation-total-frames="60"
 data-animation-frame-base="1"
 data-animation-trigger-frames="21,49"
 
+data-left-foot-pan="-0.12"
+data-right-foot-pan="0.12"
+data-footstep-pan-random="0.03"
+data-splash-pan-random="0.08"
+data-creak-pan-random="0.05"
+data-audio-panning-enabled="true"
+
+data-left-foot-origin-x="43"
+data-right-foot-origin-x="57"
+data-foot-origin-y="78"
+
 data-speed-min="0.75"
 data-speed-mid="1"
 data-speed-max="1.5"
@@ -59,14 +72,20 @@ data-speed-max="1.5"
 data-footstep-pitch-at-min-speed="0.9"
 data-footstep-pitch-at-mid-speed="1"
 data-footstep-pitch-at-max-speed="1.2"
+data-footstep-pitch-random="0.03"
+data-footstep-volume-random="0.08"
 
 data-wet-pitch-at-min-speed="0.8"
 data-wet-pitch-at-mid-speed="1"
 data-wet-pitch-at-max-speed="1.15"
+data-splash-pitch-random="0.04"
+data-splash-volume-random="0.12"
 
 data-creak-pitch-at-min-speed="0.85"
 data-creak-pitch-at-mid-speed="1"
 data-creak-pitch-at-max-speed="1.15"
+data-creak-pitch-random="0.04"
+data-creak-volume-random="0.1"
 
 data-footstep-volume-at-min-speed="0.5"
 data-footstep-volume-at-mid-speed="0.75"
@@ -101,6 +120,50 @@ data-clip-recent-memory="3"
 data-footstep-recent-memory="3"
 data-splash-recent-memory="3"
 data-creak-recent-memory="3"
+
+data-dust-particles-enabled="true"
+data-dust-particle-srcs=""
+data-dust-particle-surfaces="wood,dirt,concrete"
+data-dust-particle-origin-offset-x="15"
+data-dust-particle-origin-offset-y="12"
+data-dust-particle-count-min="4"
+data-dust-particle-count-max="8"
+data-dust-particle-size-min="0.5"
+data-dust-particle-size-max="1.5"
+data-dust-particle-opacity="0.65"
+data-dust-particle-color="rgb(145 119 88 / 0.55)"
+data-dust-particle-blend-mode="screen"
+data-dust-particle-duration-min="420"
+data-dust-particle-duration-max="760"
+data-dust-particle-spread-x="15"
+data-dust-particle-spread-y="2"
+data-dust-particle-rise-y="2"
+data-dust-particle-scale-at-min-speed="0.7"
+data-dust-particle-scale-at-mid-speed="1"
+data-dust-particle-scale-at-max-speed="1.45"
+
+data-splash-particles-enabled="true"
+data-splash-particle-srcs=""
+data-splash-particle-origin-offset-x="16"
+data-splash-particle-origin-offset-y="12"
+data-splash-particles-follow-audio-chance="true"
+data-splash-particle-count-min="3"
+data-splash-particle-count-max="7"
+data-splash-particle-size-min="1"
+data-splash-particle-size-max="2"
+data-splash-particle-opacity="0.72"
+data-splash-particle-color="rgb(145 185 205 / 0.72)"
+data-splash-particle-blend-mode="screen"
+data-splash-particle-duration-min="360"
+data-splash-particle-duration-max="720"
+data-splash-particle-spread-x="20"
+data-splash-particle-spread-y="5"
+data-splash-particle-rise-y="5"
+data-splash-particle-scale-at-min-speed="0.75"
+data-splash-particle-scale-at-mid-speed="1"
+data-splash-particle-scale-at-max-speed="1.55"
+data-splash-particle-scale-at-zero-wetness="0.25"
+data-splash-particle-scale-at-full-wetness="1"
 >
 <div class="dfp-panel">
 <div class="dfp-controls">
@@ -148,10 +211,12 @@ data-creak-recent-memory="3"
 <div class="dfp-video-panel">
 <div class="dfp-video-frame">
 <div class="dfp-black-underlay"></div>
-<div class="dfp-floor-image-layer"></div>
+<div class="dfp-floor-image-layer dfp-floor-image-layer-a"></div>
+<div class="dfp-floor-image-layer dfp-floor-image-layer-b"></div>
 <div class="dfp-wet-image-layer"></div>
 <video class="dfp-animation-video" muted loop playsinline preload="auto"></video>
 <canvas class="dfp-animation-canvas"></canvas>
+<div class="dfp-particle-layer"></div>
 <div class="dfp-video-placeholder">Animation Preview</div>
 </div>
 </div>
@@ -425,7 +490,8 @@ justify-content: center;
 .dfp-floor-image-layer,
 .dfp-wet-image-layer,
 .dfp-animation-video,
-.dfp-animation-canvas {
+.dfp-animation-canvas,
+.dfp-particle-layer {
 position: absolute;
 inset: 0;
 width: 100%;
@@ -457,21 +523,48 @@ background-position: 0 center;
 }
 
 .dfp-animation-video {
-z-index: 3;
+z-index: 4;
 object-fit: contain;
 object-position: center center;
 transform-origin: center center;
 }
 
 .dfp-animation-canvas {
-z-index: 4;
+z-index: 5;
 display: none;
 transform-origin: center center;
 }
 
+.dfp-particle-layer {
+z-index: 6;
+overflow: hidden;
+}
+
+.dfp-particle {
+position: absolute;
+left: 50%;
+top: 50%;
+width: 6px;
+height: 6px;
+border-radius: 999px;
+background-position: center center;
+background-repeat: no-repeat;
+background-size: contain;
+pointer-events: none;
+will-change: transform, opacity;
+}
+
+.dfp-dust-particle {
+background: radial-gradient(circle, rgb(180 150 110 / 75%) 0%, rgb(120 95 70 / 35%) 45%, transparent 72%);
+}
+
+.dfp-splash-particle {
+background: radial-gradient(circle, rgb(190 225 235 / 82%) 0%, rgb(120 165 185 / 48%) 45%, transparent 72%);
+}
+
 .dfp-video-placeholder {
 position: relative;
-z-index: 5;
+z-index: 7;
 padding: 0.55rem;
 text-align: center;
 font-size: 0.72rem;
@@ -539,8 +632,9 @@ var speedSlider = root.querySelector(".dfp-speed");
 var animationVideo = root.querySelector(".dfp-animation-video");
 var animationCanvas = root.querySelector(".dfp-animation-canvas");
 var animationCanvasContext = animationCanvas ? animationCanvas.getContext("2d") : null;
-var floorLayer = root.querySelector(".dfp-floor-image-layer");
+var floorLayers = Array.prototype.slice.call(root.querySelectorAll(".dfp-floor-image-layer"));
 var wetLayer = root.querySelector(".dfp-wet-image-layer");
+var particleLayer = root.querySelector(".dfp-particle-layer");
 var blackUnderlay = root.querySelector(".dfp-black-underlay");
 
 var volumeValue = root.querySelector('[data-value="volume"]');
@@ -561,6 +655,15 @@ var wetOffsetX = 0;
 var lastVisualTime = 0;
 var lastAnimationCanvasRenderTime = 0;
 
+var activeFloorIndex = 0;
+var floorVisualSurface = null;
+var floorTransitionTimer = null;
+
+var audioContext = null;
+var resumeVisibilityTimer = null;
+var isPageVisible = !document.hidden;
+var isInView = true;
+
 function dataNumber(name, fallback) {
 var value = parseFloat(root.dataset[name]);
 return Number.isFinite(value) ? value : fallback;
@@ -571,12 +674,37 @@ var value = root.dataset[name];
 return value === undefined || value === "" ? fallback : value;
 }
 
+function dataBool(name, fallback) {
+var value = root.dataset[name];
+if (value === undefined) return fallback;
+return value !== "false";
+}
+
 function clamp(value, min, max) {
 return Math.max(min, Math.min(max, value));
 }
 
 function lerp(a, b, t) {
 return a + ((b - a) * t);
+}
+
+function randomRange(min, max) {
+return lerp(min, max, Math.random());
+}
+
+function randomInt(min, max) {
+min = Math.ceil(min);
+max = Math.floor(max);
+return Math.floor(Math.random() * (max - min + 1)) + min;
+}
+
+function randomSigned(amount) {
+return randomRange(-amount, amount);
+}
+
+function randomizeValue(value, amount) {
+amount = Math.max(0, amount || 0);
+return value * (1 + randomSigned(amount));
 }
 
 function getSpeed() {
@@ -591,6 +719,23 @@ return true;
 
 function imageUrl(src) {
 return 'url("' + src.replace(/"/g, "%22") + '")';
+}
+
+function listFromData(name) {
+var raw = dataText(name, "");
+if (!raw) return [];
+return raw.split(",").map(function (item) {
+return item.trim();
+}).filter(function (item) {
+return !!item;
+});
+}
+
+function surfaceIsAllowed(rawList, surface) {
+if (!rawList) return true;
+return rawList.split(",").map(function (item) {
+return item.trim();
+}).indexOf(surface) !== -1;
 }
 
 function getSurfaceImageSrc(surface) {
@@ -644,6 +789,23 @@ return target > previous || target <= current;
 }
 
 return target > previous && target <= current;
+}
+
+function getFootSide(footInfo) {
+if (!footInfo) return "left";
+return footInfo.triggerIndex % 2 === 0 ? "left" : "right";
+}
+
+function getFootPan(footInfo, randomKey) {
+var side = getFootSide(footInfo);
+var base = side === "left" ? dataNumber("leftFootPan", -0.12) : dataNumber("rightFootPan", 0.12);
+var randomAmount = dataNumber(randomKey, 0);
+return clamp(base + randomSigned(randomAmount), -1, 1);
+}
+
+function getFootOriginX(footInfo) {
+var side = getFootSide(footInfo);
+return side === "left" ? dataNumber("leftFootOriginX", 43) : dataNumber("rightFootOriginX", 57);
 }
 
 function getSpeedMappedValue(prefix, fallbackMin, fallbackMid, fallbackMax) {
@@ -748,20 +910,15 @@ return getSpeedMappedValue("wetImageScroll", -12, -24, -48);
 
 function getClipMemory(memoryKey, listLength) {
 var memory = Math.round(dataNumber(memoryKey + "RecentMemory", dataNumber("clipRecentMemory", 3)));
-
 memory = Math.max(0, memory);
 
-if (listLength <= 1) {
-return 0;
-}
+if (listLength <= 1) return 0;
 
 return Math.min(memory, listLength - 1);
 }
 
 function rememberClip(group, url, memory) {
-if (!recentPlayed[group]) {
-recentPlayed[group] = [];
-}
+if (!recentPlayed[group]) recentPlayed[group] = [];
 
 recentPlayed[group] = recentPlayed[group].filter(function (item) {
 return item !== url;
@@ -776,7 +933,6 @@ recentPlayed[group].length = memory;
 
 function randomItem(list, group, memoryKey) {
 if (!list || !list.length) return null;
-
 if (list.length === 1) return list[0];
 
 memoryKey = memoryKey || group;
@@ -788,15 +944,54 @@ var candidates = list.filter(function (item) {
 return recent.indexOf(item) === -1;
 });
 
-if (!candidates.length) {
-candidates = list.slice();
-}
+if (!candidates.length) candidates = list.slice();
 
 var picked = candidates[Math.floor(Math.random() * candidates.length)];
 
 rememberClip(group, picked, memory);
 
 return picked;
+}
+
+function getAudioContext() {
+if (!dataBool("audioPanningEnabled", true)) return null;
+
+try {
+var AudioContextClass = window.AudioContext || window.webkitAudioContext;
+if (!AudioContextClass) return null;
+
+if (!audioContext) {
+audioContext = new AudioContextClass();
+}
+
+if (audioContext.state === "suspended") {
+audioContext.resume().catch(function () {});
+}
+
+return audioContext;
+} catch (error) {
+return null;
+}
+}
+
+function setAudioPan(audio, pan) {
+if (!audio || !dataBool("audioPanningEnabled", true)) return;
+
+var context = getAudioContext();
+if (!context || !context.createStereoPanner) return;
+
+try {
+if (!audio._dfpSource) {
+audio._dfpSource = context.createMediaElementSource(audio);
+audio._dfpPanner = context.createStereoPanner();
+audio._dfpSource.connect(audio._dfpPanner);
+audio._dfpPanner.connect(context.destination);
+}
+
+if (audio._dfpPanner) {
+audio._dfpPanner.pan.value = clamp(pan || 0, -1, 1);
+}
+} catch (error) {}
 }
 
 function updateBlackUnderlay() {
@@ -862,7 +1057,6 @@ var canvasHeight = animationCanvas.height;
 
 ctx.setTransform(1, 0, 0, 1, 0, 0);
 ctx.clearRect(0, 0, canvasWidth, canvasHeight);
-
 ctx.imageSmoothingEnabled = getAnimationRenderSmoothing();
 
 var scale = Math.min(canvasWidth / videoWidth, canvasHeight / videoHeight);
@@ -953,43 +1147,104 @@ if (!animationVideo || !animationVideo.src) return;
 try {
 animationVideo.playbackRate = getAnimationSpeed();
 
+if (canRunVisuals()) {
 var promise = animationVideo.play();
 
 if (promise && promise.catch) {
 promise.catch(function () {});
 }
+}
 } catch (error) {}
 }
 
 function updateVideoPlaceholderState() {
-var hasFloor = floorLayer && usableSource(getSurfaceImageSrc(currentSurface));
+var hasFloor = usableSource(getSurfaceImageSrc(currentSurface));
 var hasWet = wetLayer && usableSource(root.dataset.wetImageSrc || "");
 var hasAnim = root.classList.contains("dfp-has-animation-video");
 
 root.classList.toggle("dfp-has-video", hasFloor || hasWet || hasAnim);
 }
 
-function updateFloorLayer() {
-if (!floorLayer) return;
-
-var src = getSurfaceImageSrc(currentSurface);
-
-if (!usableSource(src)) {
-floorLayer.style.backgroundImage = "none";
-floorLayer.style.opacity = "0";
-return;
-}
+function applyFloorBaseStyle(layer) {
+if (!layer) return;
 
 var offsetY = dataText("floorImageOffsetY", "0");
 var scaleY = dataNumber("floorImageScaleY", 1);
 
-floorLayer.style.backgroundImage = imageUrl(src);
-floorLayer.style.backgroundRepeat = dataText("floorImageRepeat", "repeat-x");
-floorLayer.style.backgroundSize = dataText("floorImageSize", "auto 100%");
-floorLayer.style.mixBlendMode = dataText("floorImageBlendMode", "normal");
-floorLayer.style.opacity = String(clamp(dataNumber("floorImageOpacity", 1), 0, 1));
-floorLayer.style.transform = "translateY(" + offsetY + ") scaleY(" + scaleY + ")";
-floorLayer.style.transformOrigin = dataText("floorImageTransformOrigin", "center bottom");
+layer.style.backgroundRepeat = dataText("floorImageRepeat", "repeat-x");
+layer.style.backgroundSize = dataText("floorImageSize", "auto 100%");
+layer.style.mixBlendMode = dataText("floorImageBlendMode", "normal");
+layer.style.transform = "translateY(" + offsetY + ") scaleY(" + scaleY + ")";
+layer.style.transformOrigin = dataText("floorImageTransformOrigin", "center bottom");
+}
+
+function updateFloorLayers() {
+if (!floorLayers.length) return;
+
+var src = getSurfaceImageSrc(currentSurface);
+var opacity = clamp(dataNumber("floorImageOpacity", 1), 0, 1);
+var duration = Math.max(0, dataNumber("floorTransitionMs", 450));
+var easing = dataText("floorTransitionEasing", "ease");
+
+floorLayers.forEach(function (layer) {
+applyFloorBaseStyle(layer);
+layer.style.transition = "opacity " + duration + "ms " + easing;
+});
+
+if (!usableSource(src)) {
+floorLayers.forEach(function (layer) {
+layer.style.backgroundImage = "none";
+layer.style.opacity = "0";
+});
+floorVisualSurface = currentSurface;
+return;
+}
+
+if (floorVisualSurface === null || floorVisualSurface === currentSurface) {
+floorVisualSurface = currentSurface;
+
+floorLayers.forEach(function (layer, index) {
+if (index === activeFloorIndex) {
+layer.style.backgroundImage = imageUrl(src);
+layer.style.opacity = String(opacity);
+} else {
+layer.style.opacity = "0";
+}
+});
+
+return;
+}
+
+var oldIndex = activeFloorIndex;
+var newIndex = activeFloorIndex === 0 ? 1 : 0;
+var oldLayer = floorLayers[oldIndex];
+var newLayer = floorLayers[newIndex];
+
+if (floorTransitionTimer) {
+clearTimeout(floorTransitionTimer);
+floorTransitionTimer = null;
+}
+
+newLayer.style.transition = "none";
+newLayer.style.backgroundImage = imageUrl(src);
+newLayer.style.opacity = "0";
+applyFloorBaseStyle(newLayer);
+
+newLayer.offsetHeight;
+
+oldLayer.style.transition = "opacity " + duration + "ms " + easing;
+newLayer.style.transition = "opacity " + duration + "ms " + easing;
+
+oldLayer.style.opacity = "0";
+newLayer.style.opacity = String(opacity);
+
+activeFloorIndex = newIndex;
+floorVisualSurface = currentSurface;
+
+floorTransitionTimer = setTimeout(function () {
+oldLayer.style.opacity = "0";
+floorTransitionTimer = null;
+}, duration + 80);
 }
 
 function updateWetLayer() {
@@ -1024,12 +1279,118 @@ var wetY = dataText("wetImagePositionY", "center");
 floorOffsetX += getFloorScrollSpeed() * deltaSeconds;
 wetOffsetX += getWetImageScrollSpeed() * deltaSeconds;
 
-if (floorLayer) {
-floorLayer.style.backgroundPosition = floorOffsetX.toFixed(2) + "px " + floorY;
-}
+floorLayers.forEach(function (layer) {
+layer.style.backgroundPosition = floorOffsetX.toFixed(2) + "px " + floorY;
+});
 
 if (wetLayer) {
 wetLayer.style.backgroundPosition = wetOffsetX.toFixed(2) + "px " + wetY;
+}
+}
+
+function getParticleImages(kind) {
+return listFromData(kind + "ParticleSrcs");
+}
+
+function getParticleSpeedScale(kind) {
+if (kind === "dust") {
+return getSpeedMappedValue("dustParticleScale", 0.7, 1, 1.45);
+}
+
+var wetness = parseFloat(wetnessSlider.value) || 0;
+var speedScale = getSpeedMappedValue("splashParticleScale", 0.75, 1, 1.55);
+var wetScale = lerp(
+dataNumber("splashParticleScaleAtZeroWetness", 0.25),
+dataNumber("splashParticleScaleAtFullWetness", 1),
+clamp(wetness, 0, 1)
+);
+
+return speedScale * wetScale;
+}
+
+function spawnParticleBurst(kind, footInfo) {
+if (!particleLayer) return;
+
+if (kind === "dust" && !dataBool("dustParticlesEnabled", true)) return;
+if (kind === "splash" && !dataBool("splashParticlesEnabled", true)) return;
+
+if (kind === "dust" && !surfaceIsAllowed(dataText("dustParticleSurfaces", "wood,dirt,concrete"), currentSurface)) return;
+
+var prefix = kind + "Particle";
+var count = randomInt(dataNumber(prefix + "CountMin", 2), dataNumber(prefix + "CountMax", 5));
+var sizeMin = dataNumber(prefix + "SizeMin", 3);
+var sizeMax = dataNumber(prefix + "SizeMax", 8);
+var opacity = clamp(dataNumber(prefix + "Opacity", kind === "dust" ? 0.45 : 0.72), 0, 1);
+var durationMin = dataNumber(prefix + "DurationMin", 420);
+var durationMax = dataNumber(prefix + "DurationMax", 760);
+var spreadX = dataNumber(prefix + "SpreadX", 24);
+var spreadY = dataNumber(prefix + "SpreadY", 10);
+var riseY = dataNumber(prefix + "RiseY", -10);
+var scale = getParticleSpeedScale(kind);
+var images = getParticleImages(kind);
+var originOffsetX = dataNumber(prefix + "OriginOffsetX", 0);
+var originOffsetY = dataNumber(prefix + "OriginOffsetY", 0);
+var originX = getFootOriginX(footInfo) + originOffsetX;
+var originY = dataNumber("footOriginY", 78) + originOffsetY;
+var color = dataText(prefix + "Color", kind === "dust" ? "rgb(145 119 88 / 0.55)" : "rgb(145 185 205 / 0.72)");
+var blend = dataText(prefix + "BlendMode", kind === "dust" ? "screen" : "screen");
+
+for (var i = 0; i < count; i++) {
+var particle = document.createElement("div");
+var size = randomRange(sizeMin, sizeMax) * scale;
+var endX = randomSigned(spreadX) * scale;
+var endY = (randomSigned(spreadY) + riseY) * scale;
+var endScale = randomRange(0.75, 1.55) * scale;
+var duration = randomRange(durationMin, durationMax);
+
+particle.className = "dfp-particle dfp-" + kind + "-particle";
+particle.style.left = originX + "%";
+particle.style.top = originY + "%";
+particle.style.width = size + "px";
+particle.style.height = size + "px";
+particle.style.opacity = "0";
+particle.style.mixBlendMode = blend;
+
+if (images.length) {
+particle.style.background = "none";
+particle.style.backgroundImage = imageUrl(images[Math.floor(Math.random() * images.length)]);
+particle.style.backgroundSize = "contain";
+particle.style.backgroundRepeat = "no-repeat";
+particle.style.backgroundPosition = "center center";
+} else {
+particle.style.background = color;
+particle.style.boxShadow = "0 0 " + Math.max(4, size * 1.2) + "px " + color;
+}
+
+particleLayer.appendChild(particle);
+
+var startTransform = "translate(-50%, -50%) translate(0px, 0px) scale(0.15)";
+var midTransform = "translate(-50%, -50%) translate(" + (endX * 0.35).toFixed(2) + "px, " + (endY * 0.35).toFixed(2) + "px) scale(" + (endScale * 0.85).toFixed(3) + ")";
+var endTransform = "translate(-50%, -50%) translate(" + endX.toFixed(2) + "px, " + endY.toFixed(2) + "px) scale(" + endScale.toFixed(3) + ")";
+
+if (particle.animate) {
+particle.animate([
+{ opacity: 0, transform: startTransform },
+{ opacity: opacity, transform: midTransform, offset: 0.22 },
+{ opacity: 0, transform: endTransform }
+], {
+duration: duration,
+easing: "cubic-bezier(0.16, 1, 0.3, 1)",
+fill: "forwards"
+}).onfinish = function () {
+if (this.effect && this.effect.target && this.effect.target.parentNode) {
+this.effect.target.parentNode.removeChild(this.effect.target);
+}
+};
+} else {
+particle.style.transform = midTransform;
+particle.style.opacity = String(opacity);
+setTimeout(function (element) {
+if (element && element.parentNode) {
+element.parentNode.removeChild(element);
+}
+}, duration, particle);
+}
 }
 }
 
@@ -1038,13 +1399,22 @@ lastFrame = null;
 firedThisLoop = {};
 }
 
+function canRunVisuals() {
+return isPageVisible && isInView;
+}
+
 function startFrameMonitor() {
-if (frameMonitor) return;
+if (frameMonitor || !canRunVisuals()) return;
 
 resetFrameState();
 lastVisualTime = performance.now();
 
 function tick(now) {
+if (!canRunVisuals()) {
+stopFrameMonitor();
+return;
+}
+
 var deltaSeconds = Math.max(0, Math.min(0.1, (now - lastVisualTime) / 1000));
 lastVisualTime = now;
 
@@ -1060,14 +1430,15 @@ looped = true;
 firedThisLoop = {};
 }
 
-if (isAudioArmed) {
-getTriggerFrames().forEach(function (targetFrame) {
+getTriggerFrames().forEach(function (targetFrame, triggerIndex) {
 if (!firedThisLoop[targetFrame] && crossedFrame(targetFrame, lastFrame, currentFrame, looped)) {
 firedThisLoop[targetFrame] = true;
-playFootstepOnce();
-}
+playFootstepOnce({
+targetFrame: targetFrame,
+triggerIndex: triggerIndex
 });
 }
+});
 
 lastFrame = currentFrame;
 }
@@ -1078,12 +1449,139 @@ frameMonitor = requestAnimationFrame(tick);
 frameMonitor = requestAnimationFrame(tick);
 }
 
+function stopFrameMonitor() {
+if (frameMonitor) {
+cancelAnimationFrame(frameMonitor);
+frameMonitor = null;
+}
+}
+
+function resumeAnimationAfterVisibilityReturn() {
+lastVisualTime = performance.now();
+lastAnimationCanvasRenderTime = 0;
+resetFrameState();
+updateAnimationSpeed();
+updateAnimationPresenterState();
+
+if (!animationVideo || !animationVideo.src || animationVideo.style.display === "none") return;
+if (!canRunVisuals()) return;
+
+try {
+if (Number.isFinite(animationVideo.duration) && animationVideo.duration > 0) {
+if (animationVideo.currentTime >= animationVideo.duration - 0.03) {
+animationVideo.currentTime = 0;
+}
+}
+
+var beforeTime = animationVideo.currentTime || 0;
+var playPromise = animationVideo.play();
+
+if (playPromise && playPromise.catch) {
+playPromise.catch(function () {});
+}
+
+if (resumeVisibilityTimer) {
+clearTimeout(resumeVisibilityTimer);
+resumeVisibilityTimer = null;
+}
+
+resumeVisibilityTimer = setTimeout(function () {
+if (!animationVideo || !animationVideo.src) return;
+if (!canRunVisuals()) return;
+
+var afterTime = animationVideo.currentTime || 0;
+var appearsStuck = animationVideo.paused || Math.abs(afterTime - beforeTime) < 0.002;
+
+if (appearsStuck) {
+try {
+if (Number.isFinite(animationVideo.duration) && animationVideo.duration > 0) {
+animationVideo.currentTime = (afterTime + 0.016) % animationVideo.duration;
+}
+
+var retryPromise = animationVideo.play();
+
+if (retryPromise && retryPromise.catch) {
+retryPromise.catch(function () {});
+}
+} catch (error) {}
+}
+
+drawAnimationCanvasFrame();
+resetFrameState();
+}, 350);
+} catch (error) {}
+}
+
+function pauseVisuals() {
+stopFrameMonitor();
+
+if (!animationVideo || !animationVideo.src) return;
+
+try {
+animationVideo.pause();
+} catch (error) {}
+}
+
+function resumeVisuals() {
+if (!canRunVisuals()) {
+pauseVisuals();
+return;
+}
+
+resumeAnimationAfterVisibilityReturn();
+startFrameMonitor();
+}
+
+function setupVisibilityHandlers() {
+document.addEventListener("visibilitychange", function () {
+isPageVisible = !document.hidden;
+
+if (isPageVisible) {
+resumeVisuals();
+} else {
+pauseVisuals();
+}
+});
+
+window.addEventListener("focus", function () {
+isPageVisible = !document.hidden;
+resumeVisuals();
+});
+
+window.addEventListener("pageshow", function () {
+isPageVisible = !document.hidden;
+resumeVisuals();
+});
+
+if ("IntersectionObserver" in window) {
+var intersectionObserver = new IntersectionObserver(function (entries) {
+entries.forEach(function (entry) {
+if (entry.target !== root) return;
+
+isInView = entry.isIntersecting && entry.intersectionRatio > 0.05;
+
+if (isInView) {
+resumeVisuals();
+} else {
+pauseVisuals();
+}
+});
+}, {
+threshold: [0, 0.05, 0.15, 0.5, 1]
+});
+
+intersectionObserver.observe(root);
+}
+}
+
 function createAudioPool(urls, count) {
 var result = [];
 
 urls.forEach(function (url) {
 for (var i = 0; i < count; i++) {
-var audio = new Audio(url);
+var audio = new Audio();
+audio.crossOrigin = "anonymous";
+audio.src = url;
 audio.preload = "auto";
 result.push(audio);
 }
@@ -1112,14 +1610,16 @@ return pool[i];
 }
 }
 
-var audio = new Audio(url);
+var audio = new Audio();
+audio.crossOrigin = "anonymous";
+audio.src = url;
 audio.preload = "auto";
 pool.push(audio);
 pools[group] = pool;
 return audio;
 }
 
-function playClip(url, group, volume, pitch) {
+function playClip(url, group, volume, pitch, pan) {
 if (!url || volume <= 0) return;
 
 var audio = getAudioFromPool(url, group);
@@ -1132,30 +1632,55 @@ audio.playbackRate = clamp(pitch || 1, 0.25, 4);
 audio.preservesPitch = false;
 audio.mozPreservesPitch = false;
 audio.webkitPreservesPitch = false;
+
+setAudioPan(audio, pan || 0);
+
 audio.play().catch(function () {});
 } catch (error) {}
 }
 
-function playFootstepOnce() {
+function playFootstepOnce(footInfo) {
 var sliderVolume = parseFloat(volumeSlider.value) || 0;
 var wetness = parseFloat(wetnessSlider.value) || 0;
+
+spawnParticleBurst("dust", footInfo);
+
+var wetFullChanceAt = dataNumber("wetFullChanceAt", 0.5);
+var shouldPlayWetSplash = wetness >= wetFullChanceAt || Math.random() <= getWetChance();
+
+if (wetness > 0 && shouldPlayWetSplash && dataBool("splashParticlesFollowAudioChance", true)) {
+spawnParticleBurst("splash", footInfo);
+}
+
+if (wetness > 0 && !dataBool("splashParticlesFollowAudioChance", true)) {
+spawnParticleBurst("splash", footInfo);
+}
 
 if (sliderVolume <= 0) return;
 
 var surfaceList = soundLists[currentSurface] || soundLists.wood;
 var footstepUrl = randomItem(surfaceList, "footstep-" + currentSurface, "footstep");
 var footstepVolume = sliderVolume * getFootstepSpeedVolume();
+var footstepPitch = getFootstepPitch();
+var footstepPan = getFootPan(footInfo, "footstepPanRandom");
 
-playClip(footstepUrl, currentSurface, footstepVolume, getFootstepPitch());
+footstepVolume = clamp(randomizeValue(footstepVolume, dataNumber("footstepVolumeRandom", 0.08)), 0, 1);
+footstepPitch = clamp(randomizeValue(footstepPitch, dataNumber("footstepPitchRandom", 0.03)), 0.25, 4);
 
-if (wetness > 0 && Math.random() <= getWetChance()) {
+playClip(footstepUrl, currentSurface, footstepVolume, footstepPitch, footstepPan);
+
+if (wetness > 0 && shouldPlayWetSplash) {
 var wetUrl = randomItem(soundLists.wet, "splash", "splash");
 var wetBaseGain = dataNumber("wetVolumeMultiplier", 0.85);
 var wetMaxVolume = dataNumber("wetVolumeMax", 1);
 var wetVolume = sliderVolume * wetBaseGain * getWetVolumeFromWetness() * getWetSpeedVolume() * getWetRawSpeedVolume();
-wetVolume = clamp(wetVolume, 0, wetMaxVolume);
+var wetPitch = getWetPitch();
+var wetPan = getFootPan(footInfo, "splashPanRandom");
 
-playClip(wetUrl, "wet", wetVolume, getWetPitch());
+wetVolume = clamp(randomizeValue(wetVolume, dataNumber("splashVolumeRandom", 0.12)), 0, wetMaxVolume);
+wetPitch = clamp(randomizeValue(wetPitch, dataNumber("splashPitchRandom", 0.04)), 0.25, 4);
+
+playClip(wetUrl, "wet", wetVolume, wetPitch, wetPan);
 }
 
 if (currentSurface === "wood" && creakBox.checked && Math.random() <= getCreakChance()) {
@@ -1163,14 +1688,18 @@ var creakUrl = randomItem(soundLists.creak, "creak", "creak");
 var creakBaseGain = dataNumber("creakVolumeMultiplier", 0.8);
 var creakMaxVolume = dataNumber("creakVolumeMax", 1);
 var creakVolume = sliderVolume * creakBaseGain * getCreakSpeedVolume();
-creakVolume = clamp(creakVolume, 0, creakMaxVolume);
+var creakPitch = getCreakPitch();
+var creakPan = getFootPan(footInfo, "creakPanRandom");
 var delayMin = dataNumber("creakDelayMin", 0);
 var delayMax = dataNumber("creakDelayMax", 0.08);
 var delay = lerp(delayMin, delayMax, Math.random()) * 1000;
 
+creakVolume = clamp(randomizeValue(creakVolume, dataNumber("creakVolumeRandom", 0.1)), 0, creakMaxVolume);
+creakPitch = clamp(randomizeValue(creakPitch, dataNumber("creakPitchRandom", 0.04)), 0.25, 4);
+
 setTimeout(function () {
 if (!isAudioArmed) return;
-playClip(creakUrl, "creak", creakVolume, getCreakPitch());
+playClip(creakUrl, "creak", creakVolume, creakPitch, creakPan);
 }, delay);
 }
 }
@@ -1206,7 +1735,7 @@ updateSlider(speedSlider);
 updateBlackUnderlay();
 updateAnimationTransform();
 updateAnimationPresenterState();
-updateFloorLayer();
+updateFloorLayers();
 updateWetLayer();
 updateVideoPlaceholderState();
 }
@@ -1223,6 +1752,7 @@ var volume = parseFloat(volumeSlider.value) || 0;
 
 isAudioArmed = volume > 0;
 updateUI();
+resumeVisuals();
 });
 
 wetnessSlider.addEventListener("input", function () {
@@ -1245,10 +1775,12 @@ updateAnimationSpeed();
 drawAnimationCanvasFrame();
 
 try {
+if (canRunVisuals()) {
 var promise = animationVideo.play();
 
 if (promise && promise.catch) {
 promise.catch(function () {});
+}
 }
 } catch (error) {}
 });
@@ -1271,10 +1803,11 @@ speedSlider.max = root.dataset.speedMax || "2";
 
 preparePools();
 setupAnimationVideo();
+setupVisibilityHandlers();
 updateUI();
 
 isAudioArmed = (parseFloat(volumeSlider.value) || 0) > 0;
-startFrameMonitor();
+resumeVisuals();
 });
 })();
 </script>
