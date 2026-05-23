@@ -284,7 +284,6 @@ data-splash-particle-scale-at-full-wetness="1"
 html,
 body {
 width: 100%;
-min-height: 0;
 margin: 0;
 padding: 0;
 overflow: hidden;
@@ -2171,9 +2170,47 @@ height: height
 }, "*");
 }
 
+<script>
+(function () {
+var lastHeight = 0;
+var timer = null;
+
+function getContentHeight() {
+var player = document.querySelector(".dysphoria-footstep-player");
+var panel = document.querySelector(".dfp-panel");
+
+if (player) {
+var playerRect = player.getBoundingClientRect();
+return Math.ceil(playerRect.top + playerRect.height + 2);
+}
+
+if (panel) {
+var panelRect = panel.getBoundingClientRect();
+return Math.ceil(panelRect.top + panelRect.height + 2);
+}
+
+return 1;
+}
+
+function sendHeight() {
+var height = getContentHeight();
+
+if (!Number.isFinite(height) || height <= 0) return;
+if (Math.abs(height - lastHeight) < 1) return;
+
+lastHeight = height;
+
+window.parent.postMessage({
+type: "dfp-height",
+height: height
+}, "*");
+}
+
 function scheduleHeight() {
-requestAnimationFrame(function () {
-requestAnimationFrame(sendHeight);
+if (timer) cancelAnimationFrame(timer);
+
+timer = requestAnimationFrame(function () {
+timer = requestAnimationFrame(sendHeight);
 });
 }
 
@@ -2188,13 +2225,9 @@ setTimeout(sendHeight, 150);
 setTimeout(sendHeight, 350);
 setTimeout(sendHeight, 700);
 setTimeout(sendHeight, 1200);
-setTimeout(sendHeight, 2000);
 
 if ("ResizeObserver" in window) {
 var observer = new ResizeObserver(scheduleHeight);
-
-if (document.documentElement) observer.observe(document.documentElement);
-if (document.body) observer.observe(document.body);
 
 var player = document.querySelector(".dysphoria-footstep-player");
 var panel = document.querySelector(".dfp-panel");
