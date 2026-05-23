@@ -8,11 +8,13 @@ data-default-speed="1"
 data-black-underlay-color="rgb(0 0 0)"
 data-black-underlay-opacity="1"
 
-data-animation-src="https://msdysphoria.github.io/Personal-Storage/Video/Walk-Anim.webm"
-data-animation-speed-multiplier="1"
+data-animation-src="https://s8.ezgif.com/tmp/ezgif-876b64757fb90661.webm"
+data-animation-speed-multiplier="0.6"
 data-animation-min-speed="0.1"
-data-animation-max-speed="4"
-data-animation-scale="1.0"
+data-animation-max-speed="5"
+data-animation-render-fps="0"
+data-animation-render-smoothing="false"
+data-animation-scale="0.85"
 data-animation-scale-x="1"
 data-animation-scale-y="1"
 data-animation-position-y="0"
@@ -29,9 +31,9 @@ data-floor-image-scale-y="1"
 data-floor-image-transform-origin="center bottom"
 data-floor-image-opacity="1"
 data-floor-image-blend-mode="normal"
-data-floor-scroll-at-min-speed="-24"
-data-floor-scroll-at-mid-speed="-32"
-data-floor-scroll-at-max-speed="-64"
+data-floor-scroll-at-min-speed="-48"
+data-floor-scroll-at-mid-speed="-64"
+data-floor-scroll-at-max-speed="-128"
 
 data-wet-image-src="https://msdysphoria.github.io/Personal-Storage/Texture/Wet_Overlay.webp"
 data-wet-image-size="auto 25%"
@@ -42,9 +44,9 @@ data-wet-image-scale-y="1"
 data-wet-image-transform-origin="center bottom"
 data-wet-image-max-opacity="0.6"
 data-wet-image-blend-mode="overlay"
-data-wet-image-scroll-at-min-speed="-24"
-data-wet-image-scroll-at-mid-speed="-32"
-data-wet-image-scroll-at-max-speed="-64"
+data-wet-image-scroll-at-min-speed="-48"
+data-wet-image-scroll-at-mid-speed="-64"
+data-wet-image-scroll-at-max-speed="-128"
 
 data-animation-total-frames="60"
 data-animation-frame-base="1"
@@ -52,7 +54,7 @@ data-animation-trigger-frames="21,49"
 
 data-speed-min="0.75"
 data-speed-mid="1"
-data-speed-max="2"
+data-speed-max="1.5"
 
 data-footstep-pitch-at-min-speed="0.9"
 data-footstep-pitch-at-mid-speed="1"
@@ -137,6 +139,7 @@ data-creak-delay-max="0.08"
 <div class="dfp-floor-image-layer"></div>
 <div class="dfp-wet-image-layer"></div>
 <video class="dfp-animation-video" muted loop playsinline preload="auto"></video>
+<canvas class="dfp-animation-canvas"></canvas>
 <div class="dfp-video-placeholder">Animation Preview</div>
 </div>
 </div>
@@ -409,7 +412,8 @@ justify-content: center;
 .dfp-black-underlay,
 .dfp-floor-image-layer,
 .dfp-wet-image-layer,
-.dfp-animation-video {
+.dfp-animation-video,
+.dfp-animation-canvas {
 position: absolute;
 inset: 0;
 width: 100%;
@@ -447,9 +451,15 @@ object-position: center center;
 transform-origin: center center;
 }
 
+.dfp-animation-canvas {
+z-index: 4;
+display: none;
+transform-origin: center center;
+}
+
 .dfp-video-placeholder {
 position: relative;
-z-index: 4;
+z-index: 5;
 padding: 0.55rem;
 text-align: center;
 font-size: 0.72rem;
@@ -517,6 +527,8 @@ var volumeSlider = root.querySelector(".dfp-volume");
 var wetnessSlider = root.querySelector(".dfp-wetness");
 var speedSlider = root.querySelector(".dfp-speed");
 var animationVideo = root.querySelector(".dfp-animation-video");
+var animationCanvas = root.querySelector(".dfp-animation-canvas");
+var animationCanvasContext = animationCanvas ? animationCanvas.getContext("2d") : null;
 var floorLayer = root.querySelector(".dfp-floor-image-layer");
 var wetLayer = root.querySelector(".dfp-wet-image-layer");
 var blackUnderlay = root.querySelector(".dfp-black-underlay");
@@ -537,6 +549,7 @@ var isAudioArmed = false;
 var floorOffsetX = 0;
 var wetOffsetX = 0;
 var lastVisualTime = 0;
+var lastAnimationCanvasRenderTime = 0;
 
 function dataNumber(name, fallback) {
 var value = parseFloat(root.dataset[name]);
@@ -683,6 +696,14 @@ var max = dataNumber("animationMaxSpeed", 4);
 return clamp(getSpeed() * multiplier, min, max);
 }
 
+function getAnimationRenderFps() {
+return Math.max(0, dataNumber("animationRenderFps", 0));
+}
+
+function getAnimationRenderSmoothing() {
+return dataText("animationRenderSmoothing", "false") !== "false";
+}
+
 function getFloorScrollSpeed() {
 return getSpeedMappedValue("floorScroll", -16, -32, -64);
 }
@@ -698,16 +719,107 @@ blackUnderlay.style.background = dataText("blackUnderlayColor", "rgb(0 0 0)");
 blackUnderlay.style.opacity = String(clamp(dataNumber("blackUnderlayOpacity", 1), 0, 1));
 }
 
-function updateAnimationTransform() {
-if (!animationVideo) return;
+function animationCanvasIsEnabled() {
+return (
+getAnimationRenderFps() > 0 &&
+animationCanvas &&
+animationCanvasContext &&
+animationVideo &&
+animationVideo.src &&
+animationVideo.style.display !== "none"
+);
+}
 
+function updateAnimationPresenterState() {
+if (!animationVideo || !animationCanvas) return;
+
+if (animationCanvasIsEnabled()) {
+animationVideo.style.opacity = "0";
+animationCanvas.style.display = "block";
+} else {
+animationVideo.style.opacity = "1";
+animationCanvas.style.display = "none";
+}
+}
+
+function resizeAnimationCanvas() {
+if (!animationCanvas) return false;
+
+var rect = animationCanvas.getBoundingClientRect();
+var ratio = window.devicePixelRatio || 1;
+var width = Math.max(1, Math.round(rect.width * ratio));
+var height = Math.max(1, Math.round(rect.height * ratio));
+
+if (animationCanvas.width !== width || animationCanvas.height !== height) {
+animationCanvas.width = width;
+animationCanvas.height = height;
+return true;
+}
+
+return false;
+}
+
+function drawAnimationCanvasFrame() {
+if (!animationCanvasIsEnabled()) return;
+
+var ctx = animationCanvasContext;
+var videoWidth = animationVideo.videoWidth || 0;
+var videoHeight = animationVideo.videoHeight || 0;
+
+if (!videoWidth || !videoHeight) return;
+
+resizeAnimationCanvas();
+
+var canvasWidth = animationCanvas.width;
+var canvasHeight = animationCanvas.height;
+
+ctx.setTransform(1, 0, 0, 1, 0, 0);
+ctx.clearRect(0, 0, canvasWidth, canvasHeight);
+
+ctx.imageSmoothingEnabled = getAnimationRenderSmoothing();
+
+var scale = Math.min(canvasWidth / videoWidth, canvasHeight / videoHeight);
+var drawWidth = videoWidth * scale;
+var drawHeight = videoHeight * scale;
+var drawX = (canvasWidth - drawWidth) * 0.5;
+var drawY = (canvasHeight - drawHeight) * 0.5;
+
+try {
+ctx.drawImage(animationVideo, drawX, drawY, drawWidth, drawHeight);
+} catch (error) {}
+}
+
+function updateAnimationCanvas(now) {
+updateAnimationPresenterState();
+
+if (!animationCanvasIsEnabled()) return;
+
+var fps = getAnimationRenderFps();
+var interval = 1000 / fps;
+
+if (!lastAnimationCanvasRenderTime || now - lastAnimationCanvasRenderTime >= interval) {
+lastAnimationCanvasRenderTime = now;
+drawAnimationCanvasFrame();
+}
+}
+
+function updateAnimationTransform() {
 var scale = dataNumber("animationScale", 1);
 var scaleX = dataNumber("animationScaleX", 1) * scale;
 var scaleY = dataNumber("animationScaleY", 1) * scale;
 var positionY = dataText("animationPositionY", "0");
+var transform = "translateY(" + positionY + ") scale(" + scaleX + ", " + scaleY + ")";
+var origin = dataText("animationTransformOrigin", "center center");
 
-animationVideo.style.transform = "translateY(" + positionY + ") scale(" + scaleX + ", " + scaleY + ")";
-animationVideo.style.transformOrigin = dataText("animationTransformOrigin", "center center");
+if (animationVideo) {
+animationVideo.style.transform = transform;
+animationVideo.style.transformOrigin = origin;
+}
+
+if (animationCanvas) {
+animationCanvas.style.transform = transform;
+animationCanvas.style.transformOrigin = origin;
+}
 }
 
 function setupAnimationVideo() {
@@ -719,6 +831,7 @@ if (!usableSource(src)) {
 animationVideo.removeAttribute("src");
 animationVideo.style.display = "none";
 root.classList.remove("dfp-has-animation-video");
+updateAnimationPresenterState();
 return;
 }
 
@@ -734,6 +847,7 @@ root.classList.add("dfp-has-animation-video");
 
 updateAnimationTransform();
 updateAnimationSpeed();
+updateAnimationPresenterState();
 
 try {
 animationVideo.load();
@@ -848,6 +962,7 @@ var deltaSeconds = Math.max(0, Math.min(0.1, (now - lastVisualTime) / 1000));
 lastVisualTime = now;
 
 updateMovingImagePositions(deltaSeconds);
+updateAnimationCanvas(now);
 
 if (animationVideo && animationVideo.src && animationVideo.style.display !== "none") {
 var currentFrame = getCurrentVideoFrame();
@@ -1014,6 +1129,7 @@ updateSlider(speedSlider);
 
 updateBlackUnderlay();
 updateAnimationTransform();
+updateAnimationPresenterState();
 updateFloorLayer();
 updateWetLayer();
 updateVideoPlaceholderState();
@@ -1050,6 +1166,7 @@ if (animationVideo) {
 animationVideo.addEventListener("loadedmetadata", function () {
 resetFrameState();
 updateAnimationSpeed();
+drawAnimationCanvasFrame();
 
 try {
 var promise = animationVideo.play();
@@ -1066,6 +1183,7 @@ resetFrameState();
 
 animationVideo.addEventListener("seeked", function () {
 resetFrameState();
+drawAnimationCanvasFrame();
 });
 }
 
@@ -1078,7 +1196,6 @@ speedSlider.max = root.dataset.speedMax || "2";
 preparePools();
 setupAnimationVideo();
 updateUI();
-updateAnimationSpeed();
 
 isAudioArmed = (parseFloat(volumeSlider.value) || 0) > 0;
 startFrameMonitor();
