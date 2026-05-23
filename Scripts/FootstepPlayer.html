@@ -284,6 +284,7 @@ data-splash-particle-scale-at-full-wetness="1"
 html,
 body {
 width: 100%;
+min-height: 0;
 margin: 0;
 padding: 0;
 overflow: hidden;
@@ -311,8 +312,8 @@ display: block;
 --dfp-slider-knob-border: rgb(244 190 148 / 58%);
 --dfp-slider-knob-shadow: 0 0 0 1px rgb(0 0 0 / 55%), 0 0 9px rgb(159 71 17 / 55%);
 
---dfp-video-width: 10rem;
---dfp-video-height: 10rem;
+--dfp-video-width: clamp(10rem, 24vw, 10rem);
+--dfp-video-aspect-ratio: 1 / 1.8;
 --dfp-video-bg:
 linear-gradient(45deg, rgb(255 255 255 / 4%) 25%, transparent 25%),
 linear-gradient(-45deg, rgb(255 255 255 / 4%) 25%, transparent 25%),
@@ -323,6 +324,8 @@ linear-gradient(-45deg, transparent 75%, rgb(255 255 255 / 4%) 75%);
 
 display: block;
 width: 100%;
+height: auto;
+min-height: 0;
 max-width: 100%;
 box-sizing: border-box;
 font-family: inherit;
@@ -342,7 +345,7 @@ background: var(--dfp-bg);
 display: grid;
 grid-template-columns: minmax(0, 1fr) var(--dfp-video-width);
 gap: 0.85rem;
-align-items: stretch;
+align-items: start;
 }
 
 .dfp-controls {
@@ -351,6 +354,7 @@ display: grid;
 gap: 0.7rem;
 min-width: 0;
 padding-top: 1.55rem;
+align-self: start;
 }
 
 .dfp-title {
@@ -420,7 +424,6 @@ border-color: var(--dfp-button-active-border);
 color: var(--dfp-text);
 box-shadow: 0 0 0 1px var(--dfp-accent-soft), 0 0 14px rgb(159 71 17 / 22%);
 }
-
 
 .dfp-ambience {
 height: 2rem;
@@ -570,15 +573,17 @@ box-shadow: var(--dfp-slider-knob-shadow);
 width: var(--dfp-video-width);
 min-width: var(--dfp-video-width);
 display: flex;
-align-items: stretch;
+align-items: flex-start;
 justify-content: center;
+align-self: start;
 }
 
 .dfp-video-frame {
 position: relative;
-width: var(--dfp-video-width);
-height: 100%;
-min-height: var(--dfp-video-height);
+width: 100%;
+height: auto;
+min-height: 0;
+aspect-ratio: var(--dfp-video-aspect-ratio);
 overflow: hidden;
 border: 1px solid var(--dfp-border-soft);
 background-color: rgb(0 0 0 / 35%);
@@ -588,6 +593,7 @@ background-position: var(--dfp-video-bg-position);
 display: flex;
 align-items: center;
 justify-content: center;
+flex: 0 0 auto;
 }
 
 .dfp-black-underlay,
@@ -680,7 +686,79 @@ color: rgb(155 143 137 / 45%);
 .dysphoria-footstep-player.dfp-has-video .dfp-video-placeholder {
 display: none;
 }
+
+@media (max-width: 34rem) {
+.dfp-panel {
+grid-template-columns: minmax(0, 1fr);
+}
+
+.dfp-video-panel {
+width: 100%;
+min-width: 0;
+}
+
+.dfp-video-frame {
+width: min(var(--dfp-video-width), 100%);
+}
+}
 </style>
+
+<script>
+(function () {
+var lastHeight = 0;
+var frame = 0;
+
+function getRoot() {
+return document.querySelector(".dysphoria-footstep-player") || document.body;
+}
+
+function measureHeight() {
+var root = getRoot();
+var rect = root.getBoundingClientRect();
+
+return Math.ceil(Math.max(
+rect.height,
+document.body.scrollHeight,
+document.documentElement.scrollHeight
+));
+}
+
+function sendHeight() {
+if (frame) cancelAnimationFrame(frame);
+
+frame = requestAnimationFrame(function () {
+var height = measureHeight();
+
+if (!Number.isFinite(height) || height <= 0) return;
+if (Math.abs(height - lastHeight) < 2) return;
+
+lastHeight = height;
+
+if (window.parent && window.parent !== window) {
+window.parent.postMessage({
+type: "dfp-height",
+height: height
+}, "*");
+}
+});
+}
+
+if ("ResizeObserver" in window) {
+var observer = new ResizeObserver(sendHeight);
+observer.observe(getRoot());
+observer.observe(document.body);
+}
+
+window.addEventListener("load", sendHeight);
+window.addEventListener("resize", sendHeight);
+
+if (document.fonts && document.fonts.ready) {
+document.fonts.ready.then(sendHeight).catch(function () {});
+}
+
+sendHeight();
+})();
+</script>
 
 <script>
 (function () {
