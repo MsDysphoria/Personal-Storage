@@ -321,7 +321,9 @@ linear-gradient(-45deg, transparent 75%, rgb(255 255 255 / 4%) 75%);
 --dfp-video-bg-size: 1rem 1rem;
 --dfp-video-bg-position: 0 0, 0 0.5rem, 0.5rem -0.5rem, -0.5rem 0;
 
+display: block;
 width: 100%;
+max-width: 100%;
 box-sizing: border-box;
 font-family: inherit;
 color: var(--dfp-text);
@@ -333,6 +335,7 @@ box-sizing: border-box;
 
 .dfp-panel {
 width: 100%;
+max-width: 100%;
 padding: 0.75rem;
 border: 1px solid var(--dfp-border);
 background: var(--dfp-bg);
@@ -2112,134 +2115,6 @@ updateUI();
 
 isAudioArmed = (parseFloat(volumeSlider.value) || 0) > 0;
 resumeVisuals();
-});
-})();
-</script>
-<script>
-(function () {
-var lastHeight = 0;
-
-function getHeight() {
-var player = document.querySelector(".dysphoria-footstep-player");
-var panel = document.querySelector(".dfp-panel");
-var body = document.body;
-var html = document.documentElement;
-
-var heights = [];
-
-if (player) {
-heights.push(player.getBoundingClientRect().height);
-heights.push(player.scrollHeight);
-heights.push(player.offsetHeight);
-}
-
-if (panel) {
-heights.push(panel.getBoundingClientRect().height);
-heights.push(panel.scrollHeight);
-heights.push(panel.offsetHeight);
-}
-
-if (body) {
-heights.push(body.scrollHeight);
-heights.push(body.offsetHeight);
-}
-
-if (html) {
-heights.push(html.scrollHeight);
-heights.push(html.offsetHeight);
-}
-
-var height = Math.max.apply(null, heights.filter(function (value) {
-return Number.isFinite(value) && value > 0;
-}));
-
-return Math.ceil(height + 2);
-}
-
-function sendHeight() {
-var height = getHeight();
-
-if (!Number.isFinite(height) || height <= 0) return;
-if (Math.abs(height - lastHeight) < 1) return;
-
-lastHeight = height;
-
-window.parent.postMessage({
-type: "dfp-height",
-height: height
-}, "*");
-}
-
-<script>
-(function () {
-var lastHeight = 0;
-var timer = null;
-
-function getContentHeight() {
-var player = document.querySelector(".dysphoria-footstep-player");
-var panel = document.querySelector(".dfp-panel");
-
-if (player) {
-var playerRect = player.getBoundingClientRect();
-return Math.ceil(playerRect.top + playerRect.height + 2);
-}
-
-if (panel) {
-var panelRect = panel.getBoundingClientRect();
-return Math.ceil(panelRect.top + panelRect.height + 2);
-}
-
-return 1;
-}
-
-function sendHeight() {
-var height = getContentHeight();
-
-if (!Number.isFinite(height) || height <= 0) return;
-if (Math.abs(height - lastHeight) < 1) return;
-
-lastHeight = height;
-
-window.parent.postMessage({
-type: "dfp-height",
-height: height
-}, "*");
-}
-
-function scheduleHeight() {
-if (timer) cancelAnimationFrame(timer);
-
-timer = requestAnimationFrame(function () {
-timer = requestAnimationFrame(sendHeight);
-});
-}
-
-sendHeight();
-scheduleHeight();
-
-window.addEventListener("load", scheduleHeight);
-window.addEventListener("resize", scheduleHeight);
-
-setTimeout(sendHeight, 50);
-setTimeout(sendHeight, 150);
-setTimeout(sendHeight, 350);
-setTimeout(sendHeight, 700);
-setTimeout(sendHeight, 1200);
-
-if ("ResizeObserver" in window) {
-var observer = new ResizeObserver(scheduleHeight);
-
-var player = document.querySelector(".dysphoria-footstep-player");
-var panel = document.querySelector(".dfp-panel");
-
-if (player) observer.observe(player);
-if (panel) observer.observe(panel);
-}
-
-document.addEventListener("input", scheduleHeight);
-document.addEventListener("change", scheduleHeight);
-document.addEventListener("click", function () {
-setTimeout(sendHeight, 80);
 });
 })();
 </script>
