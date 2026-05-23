@@ -284,6 +284,7 @@ data-splash-particle-scale-at-full-wetness="1"
 html,
 body {
 width: 100%;
+height: 100%;
 margin: 0;
 padding: 0;
 overflow: hidden;
@@ -347,14 +348,21 @@ position: relative;
 display: grid;
 gap: 0.7rem;
 min-width: 0;
+padding-top: 1.55rem;
 }
 
 .dfp-title {
+position: absolute;
+top: 0;
+left: 0;
+z-index: 3;
 font-size: 0.9rem;
 letter-spacing: 0.04em;
 text-transform: uppercase;
 color: var(--dfp-text);
-padding-right: 7rem;
+padding-right: 0;
+pointer-events: none;
+line-height: 1.1;
 }
 
 .dfp-row {
@@ -2105,6 +2113,63 @@ updateUI();
 
 isAudioArmed = (parseFloat(volumeSlider.value) || 0) > 0;
 resumeVisuals();
+});
+})();
+</script>
+<script>
+(function () {
+function getHeight() {
+var body = document.body;
+var html = document.documentElement;
+
+return Math.ceil(Math.max(
+body ? body.scrollHeight : 0,
+body ? body.offsetHeight : 0,
+html ? html.scrollHeight : 0,
+html ? html.offsetHeight : 0
+));
+}
+
+function sendHeight() {
+window.parent.postMessage({
+type: "dfp-height",
+height: getHeight()
+}, "*");
+}
+
+sendHeight();
+
+window.addEventListener("load", sendHeight);
+window.addEventListener("resize", sendHeight);
+
+setTimeout(sendHeight, 50);
+setTimeout(sendHeight, 150);
+setTimeout(sendHeight, 350);
+setTimeout(sendHeight, 700);
+setTimeout(sendHeight, 1200);
+
+if ("ResizeObserver" in window) {
+var observer = new ResizeObserver(function () {
+sendHeight();
+});
+
+observer.observe(document.documentElement);
+
+if (document.body) {
+observer.observe(document.body);
+}
+}
+
+document.addEventListener("input", function () {
+requestAnimationFrame(sendHeight);
+});
+
+document.addEventListener("change", function () {
+requestAnimationFrame(sendHeight);
+});
+
+document.addEventListener("click", function () {
+setTimeout(sendHeight, 80);
 });
 })();
 </script>
