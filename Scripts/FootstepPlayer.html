@@ -265,13 +265,7 @@ data-splash-particle-scale-at-full-wetness="1"
 <input class="dfp-slider dfp-volume" type="range" min="0" max="1" step="0.01" value="0">
 </div>
 
-<div class="dfp-slider-row">
-<div class="dfp-slider-label">
-<span>Wetness</span>
-<span class="dfp-value" data-value="wetness">0%</span>
-</div>
-<input class="dfp-slider dfp-wetness" type="range" min="0" max="1" step="0.01" value="0">
-</div>
+
 
 <div class="dfp-slider-row">
 <div class="dfp-slider-label">
@@ -279,15 +273,22 @@ data-splash-particle-scale-at-full-wetness="1"
 <span class="dfp-value" data-value="speed">1.00x</span>
 </div>
 <input class="dfp-slider dfp-speed" type="range" min="0.5" max="2" step="0.01" value="1">
+
+<div class="dfp-slider-row">
+<div class="dfp-slider-label">
+<span>Wetness</span>
+<span class="dfp-value" data-value="wetness">0%</span>
+</div>
+<input class="dfp-slider dfp-wetness" type="range" min="0" max="1" step="0.01" value="0">
+</div>
 <div class="dfp-randomizer-buttons">
+    <button class="dfp-randomizer-button dfp-randomize-speed" type="button" data-randomizer="speed" aria-pressed="false">
+<img class="dfp-randomizer-icon" alt="" aria-hidden="true">
+<span>Randomize Speed</span>
 <button class="dfp-randomizer-button dfp-randomize-wetness" type="button" data-randomizer="wetness" aria-pressed="false">
 <img class="dfp-randomizer-icon" alt="" aria-hidden="true">
 <span>Randomize Wetness</span>
 </button>
-
-<button class="dfp-randomizer-button dfp-randomize-speed" type="button" data-randomizer="speed" aria-pressed="false">
-<img class="dfp-randomizer-icon" alt="" aria-hidden="true">
-<span>Randomize Speed</span>
 </button>
 </div>
 </div>
