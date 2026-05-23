@@ -116,6 +116,25 @@ data-speed-min="0.75"
 data-speed-mid="1"
 data-speed-max="1.5"
 
+data-randomizer-icon-src="https://msdysphoria.github.io/Personal-Storage/Texture/Random_Icon.png"
+data-random-speed-icon-src=""
+data-random-wetness-icon-src=""
+data-randomizer-disable-on-manual-input="true"
+data-random-speed-target-min="0.75"
+data-random-speed-target-max="1.5"
+data-random-speed-transition-min-ms="7500"
+data-random-speed-transition-max-ms="10000"
+data-random-speed-hold-min-ms="1250"
+data-random-speed-hold-max-ms="2500"
+data-random-speed-avoid-repeat-distance="0.40"
+data-random-wetness-target-min="0"
+data-random-wetness-target-max="1"
+data-random-wetness-transition-min-ms="10000"
+data-random-wetness-transition-max-ms="15000"
+data-random-wetness-hold-min-ms="120"
+data-random-wetness-hold-max-ms="650"
+data-random-wetness-avoid-repeat-distance="0.16"
+
 data-footstep-pitch-at-min-speed="0.9"
 data-footstep-pitch-at-mid-speed="1"
 data-footstep-pitch-at-max-speed="1.2"
@@ -222,7 +241,6 @@ data-splash-particle-scale-at-full-wetness="1"
 </label>
 
 <div class="dfp-row">
-<div class="dfp-label">Surface</div>
 <div class="dfp-surface-buttons">
 <button class="dfp-surface-button dfp-active" type="button" data-surface="wood">Wood</button>
 <button class="dfp-surface-button" type="button" data-surface="dirt">Dirt</button>
@@ -231,7 +249,6 @@ data-splash-particle-scale-at-full-wetness="1"
 </div>
 
 <div class="dfp-row">
-<div class="dfp-label">Ambience</div>
 <select class="dfp-ambience">
 <option value="clean">Clean</option>
 <option value="small-room">Small Room</option>
@@ -262,6 +279,17 @@ data-splash-particle-scale-at-full-wetness="1"
 <span class="dfp-value" data-value="speed">1.00x</span>
 </div>
 <input class="dfp-slider dfp-speed" type="range" min="0.5" max="2" step="0.01" value="1">
+<div class="dfp-randomizer-buttons">
+<button class="dfp-randomizer-button dfp-randomize-wetness" type="button" data-randomizer="wetness" aria-pressed="false">
+<img class="dfp-randomizer-icon" alt="" aria-hidden="true">
+<span>Randomize Wetness</span>
+</button>
+
+<button class="dfp-randomizer-button dfp-randomize-speed" type="button" data-randomizer="speed" aria-pressed="false">
+<img class="dfp-randomizer-icon" alt="" aria-hidden="true">
+<span>Randomize Speed</span>
+</button>
+</div>
 </div>
 </div>
 
@@ -495,6 +523,67 @@ transform: rotate(45deg);
 .dfp-slider-row {
 display: grid;
 gap: 0.35rem;
+}
+
+.dfp-randomizer-buttons {
+display: grid;
+grid-template-columns: repeat(2, minmax(0, 1fr));
+gap: 0.4rem;
+}
+
+.dfp-randomizer-button {
+height: 2rem;
+min-width: 0;
+border: 1px solid var(--dfp-border-soft);
+background: var(--dfp-button-bg);
+color: var(--dfp-text-soft);
+font: inherit;
+font-size: 0.76rem;
+cursor: pointer;
+display: flex;
+align-items: center;
+justify-content: center;
+gap: 0.35rem;
+padding: 0 0.45rem;
+overflow: hidden;
+white-space: nowrap;
+transition:
+opacity 180ms ease,
+transform 180ms ease,
+border-color 180ms ease,
+background 180ms ease,
+color 180ms ease,
+box-shadow 180ms ease;
+}
+
+.dfp-randomizer-button:hover {
+transform: translateY(-1px);
+color: var(--dfp-text);
+border-color: var(--dfp-border);
+}
+
+.dfp-randomizer-button.dfp-active,
+.dfp-randomizer-button[aria-pressed="true"] {
+background: var(--dfp-button-active-bg);
+border-color: var(--dfp-button-active-border);
+color: var(--dfp-text);
+box-shadow:
+0 0 0 1px var(--dfp-accent-soft),
+0 0 14px rgb(159 71 17 / 28%);
+}
+
+.dfp-randomizer-icon {
+width: 1rem;
+height: 1rem;
+display: block;
+object-fit: contain;
+flex: 0 0 auto;
+}
+
+.dfp-randomizer-button span {
+min-width: 0;
+overflow: hidden;
+text-overflow: ellipsis;
 }
 
 .dfp-slider {
@@ -812,6 +901,12 @@ var blackUnderlay = root.querySelector(".dfp-black-underlay");
 var volumeValue = root.querySelector('[data-value="volume"]');
 var wetnessValue = root.querySelector('[data-value="wetness"]');
 var speedValue = root.querySelector('[data-value="speed"]');
+var randomizerButtons = Array.prototype.slice.call(root.querySelectorAll(".dfp-randomizer-button"));
+var randomizerLoop = null;
+var randomizerStates = {
+wetness: { active: false, slider: wetnessSlider, button: root.querySelector(".dfp-randomize-wetness") },
+speed: { active: false, slider: speedSlider, button: root.querySelector(".dfp-randomize-speed") }
+};
 
 var currentSurface = root.dataset.defaultSurface || "wood";
 var pools = {};
@@ -879,6 +974,223 @@ return randomRange(-amount, amount);
 function randomizeValue(value, amount) {
 amount = Math.max(0, amount || 0);
 return value * (1 + randomSigned(amount));
+}
+
+function sliderNumber(slider, property, fallback) {
+if (!slider) return fallback;
+var value = parseFloat(slider[property]);
+return Number.isFinite(value) ? value : fallback;
+}
+
+function snapSliderValue(slider, value) {
+var min = sliderNumber(slider, "min", 0);
+var max = sliderNumber(slider, "max", 1);
+var step = sliderNumber(slider, "step", 0.01);
+var clamped = clamp(value, min, max);
+
+if (step > 0) {
+clamped = Math.round((clamped - min) / step) * step + min;
+}
+
+return clamp(clamped, min, max);
+}
+
+function randomizerDataNumber(kind, suffix, fallback) {
+return dataNumber("random" + pascalCase(kind) + suffix, fallback);
+}
+
+function randomizerTargetMin(kind, slider) {
+return randomizerDataNumber(kind, "TargetMin", sliderNumber(slider, "min", 0));
+}
+
+function randomizerTargetMax(kind, slider) {
+return randomizerDataNumber(kind, "TargetMax", sliderNumber(slider, "max", 1));
+}
+
+function randomizerTransitionDuration(kind) {
+var min = randomizerDataNumber(kind, "TransitionMinMs", 900);
+var max = randomizerDataNumber(kind, "TransitionMaxMs", 2200);
+return randomRange(Math.max(16, min), Math.max(Math.max(16, min), max));
+}
+
+function randomizerHoldDuration(kind) {
+var min = randomizerDataNumber(kind, "HoldMinMs", 100);
+var max = randomizerDataNumber(kind, "HoldMaxMs", 500);
+return randomRange(Math.max(0, min), Math.max(Math.max(0, min), max));
+}
+
+function randomizerEase(t) {
+return t * t * (3 - (2 * t));
+}
+
+function applyRandomizedSliderValue(kind, value) {
+var state = randomizerStates[kind];
+if (!state || !state.slider) return;
+
+state.slider.value = String(snapSliderValue(state.slider, value));
+updateUI();
+
+if (kind === "speed") {
+updateAnimationSpeed();
+}
+}
+
+function pickRandomizerTarget(kind, currentValue) {
+var state = randomizerStates[kind];
+var slider = state ? state.slider : null;
+if (!slider) return currentValue;
+
+var min = randomizerTargetMin(kind, slider);
+var max = randomizerTargetMax(kind, slider);
+var sliderMin = sliderNumber(slider, "min", 0);
+var sliderMax = sliderNumber(slider, "max", 1);
+var avoidDistance = Math.max(0, randomizerDataNumber(kind, "AvoidRepeatDistance", 0));
+var target = currentValue;
+
+min = clamp(min, sliderMin, sliderMax);
+max = clamp(max, sliderMin, sliderMax);
+
+if (max < min) {
+var temp = min;
+min = max;
+max = temp;
+}
+
+for (var i = 0; i < 12; i++) {
+var candidate = snapSliderValue(slider, randomRange(min, max));
+
+if (Math.abs(candidate - currentValue) >= avoidDistance || max - min <= avoidDistance) {
+target = candidate;
+break;
+}
+
+target = candidate;
+}
+
+return target;
+}
+
+function beginRandomizerMove(kind, now) {
+var state = randomizerStates[kind];
+if (!state || !state.slider) return;
+
+var currentValue = parseFloat(state.slider.value) || 0;
+
+state.fromValue = currentValue;
+state.toValue = pickRandomizerTarget(kind, currentValue);
+state.startTime = now;
+state.duration = randomizerTransitionDuration(kind);
+state.holdUntil = 0;
+}
+
+function updateRandomizerButton(kind) {
+var state = randomizerStates[kind];
+if (!state || !state.button) return;
+
+state.button.classList.toggle("dfp-active", !!state.active);
+state.button.setAttribute("aria-pressed", state.active ? "true" : "false");
+}
+
+function randomizerHasActiveStates() {
+return Object.keys(randomizerStates).some(function (kind) {
+return randomizerStates[kind] && randomizerStates[kind].active;
+});
+}
+
+function stopRandomizerLoopIfIdle() {
+if (randomizerLoop && !randomizerHasActiveStates()) {
+cancelAnimationFrame(randomizerLoop);
+randomizerLoop = null;
+}
+}
+
+function tickRandomizers(now) {
+Object.keys(randomizerStates).forEach(function (kind) {
+var state = randomizerStates[kind];
+
+if (!state || !state.active || !state.slider) return;
+
+if (!state.startTime) {
+beginRandomizerMove(kind, now);
+}
+
+if (state.holdUntil && now < state.holdUntil) {
+return;
+}
+
+if (state.holdUntil && now >= state.holdUntil) {
+state.holdUntil = 0;
+beginRandomizerMove(kind, now);
+}
+
+var progress = clamp((now - state.startTime) / Math.max(16, state.duration || 1), 0, 1);
+var eased = randomizerEase(progress);
+var value = lerp(state.fromValue, state.toValue, eased);
+
+applyRandomizedSliderValue(kind, value);
+
+if (progress >= 1) {
+applyRandomizedSliderValue(kind, state.toValue);
+state.holdUntil = now + randomizerHoldDuration(kind);
+}
+});
+
+if (randomizerHasActiveStates()) {
+randomizerLoop = requestAnimationFrame(tickRandomizers);
+} else {
+randomizerLoop = null;
+}
+}
+
+function startRandomizerLoop() {
+if (randomizerLoop) return;
+randomizerLoop = requestAnimationFrame(tickRandomizers);
+}
+
+function setRandomizerActive(kind, active) {
+var state = randomizerStates[kind];
+if (!state || !state.slider) return;
+
+state.active = !!active;
+state.startTime = 0;
+state.holdUntil = 0;
+updateRandomizerButton(kind);
+
+if (state.active) {
+startRandomizerLoop();
+} else {
+stopRandomizerLoopIfIdle();
+}
+}
+
+function toggleRandomizer(kind) {
+var state = randomizerStates[kind];
+if (!state) return;
+setRandomizerActive(kind, !state.active);
+}
+
+function maybeStopRandomizerFromManualInput(kind, event) {
+if (!event || !event.isTrusted) return;
+if (!dataBool("randomizerDisableOnManualInput", false)) return;
+setRandomizerActive(kind, false);
+}
+
+function applyRandomizerIcons() {
+randomizerButtons.forEach(function (button) {
+var kind = button.dataset.randomizer || "";
+var icon = button.querySelector(".dfp-randomizer-icon");
+var iconSrc = dataText("random" + pascalCase(kind) + "IconSrc", "") || dataText("randomizerIconSrc", "");
+
+if (!icon) return;
+
+if (usableSource(iconSrc)) {
+icon.src = iconSrc;
+icon.style.display = "block";
+} else {
+icon.removeAttribute("src");
+icon.style.display = "none";
+}
+});
 }
 
 function getSpeed() {
@@ -2115,6 +2427,12 @@ applyAmbiencePreset();
 });
 }
 
+randomizerButtons.forEach(function (button) {
+button.addEventListener("click", function () {
+toggleRandomizer(button.dataset.randomizer || "");
+});
+});
+
 volumeSlider.addEventListener("input", function () {
 var volume = parseFloat(volumeSlider.value) || 0;
 
@@ -2123,11 +2441,13 @@ updateUI();
 resumeVisuals();
 });
 
-wetnessSlider.addEventListener("input", function () {
+wetnessSlider.addEventListener("input", function (event) {
+maybeStopRandomizerFromManualInput("wetness", event);
 updateUI();
 });
 
-speedSlider.addEventListener("input", function () {
+speedSlider.addEventListener("input", function (event) {
+maybeStopRandomizerFromManualInput("speed", event);
 updateUI();
 updateAnimationSpeed();
 });
@@ -2168,6 +2488,10 @@ wetnessSlider.value = root.dataset.defaultWetness || "0";
 speedSlider.value = root.dataset.defaultSpeed || "1";
 speedSlider.min = root.dataset.speedMin || "0.5";
 speedSlider.max = root.dataset.speedMax || "2";
+
+applyRandomizerIcons();
+updateRandomizerButton("wetness");
+updateRandomizerButton("speed");
 
 preparePools();
 setupAnimationVideo();
