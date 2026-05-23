@@ -96,6 +96,11 @@ data-creak-volume-multiplier="0.8"
 data-creak-volume-max="1"
 data-creak-delay-min="0"
 data-creak-delay-max="0.08"
+
+data-clip-recent-memory="3"
+data-footstep-recent-memory="3"
+data-splash-recent-memory="3"
+data-creak-recent-memory="3"
 >
 <div class="dfp-panel">
 <div class="dfp-controls">
@@ -544,7 +549,7 @@ var speedValue = root.querySelector('[data-value="speed"]');
 
 var currentSurface = root.dataset.defaultSurface || "wood";
 var pools = {};
-var lastPlayed = {};
+var recentPlayed = {};
 
 var frameMonitor = null;
 var lastFrame = null;
@@ -712,6 +717,7 @@ var speedChance = getSpeed() * speedMultiplier;
 
 return clamp(baseChance * speedChance, 0, maxChance);
 }
+
 function getCreakChance() {
 return getSpeedMappedValue("creakChance", 0, 0.15, 0.3);
 }
@@ -738,6 +744,59 @@ return getSpeedMappedValue("floorScroll", -16, -32, -64);
 
 function getWetImageScrollSpeed() {
 return getSpeedMappedValue("wetImageScroll", -12, -24, -48);
+}
+
+function getClipMemory(memoryKey, listLength) {
+var memory = Math.round(dataNumber(memoryKey + "RecentMemory", dataNumber("clipRecentMemory", 3)));
+
+memory = Math.max(0, memory);
+
+if (listLength <= 1) {
+return 0;
+}
+
+return Math.min(memory, listLength - 1);
+}
+
+function rememberClip(group, url, memory) {
+if (!recentPlayed[group]) {
+recentPlayed[group] = [];
+}
+
+recentPlayed[group] = recentPlayed[group].filter(function (item) {
+return item !== url;
+});
+
+recentPlayed[group].unshift(url);
+
+if (recentPlayed[group].length > memory) {
+recentPlayed[group].length = memory;
+}
+}
+
+function randomItem(list, group, memoryKey) {
+if (!list || !list.length) return null;
+
+if (list.length === 1) return list[0];
+
+memoryKey = memoryKey || group;
+
+var memory = getClipMemory(memoryKey, list.length);
+var recent = recentPlayed[group] || [];
+
+var candidates = list.filter(function (item) {
+return recent.indexOf(item) === -1;
+});
+
+if (!candidates.length) {
+candidates = list.slice();
+}
+
+var picked = candidates[Math.floor(Math.random() * candidates.length)];
+
+rememberClip(group, picked, memory);
+
+return picked;
 }
 
 function updateBlackUnderlay() {
@@ -1019,21 +1078,6 @@ frameMonitor = requestAnimationFrame(tick);
 frameMonitor = requestAnimationFrame(tick);
 }
 
-function randomItem(list, group) {
-if (!list || !list.length) return null;
-
-if (list.length === 1) return list[0];
-
-var picked = list[Math.floor(Math.random() * list.length)];
-
-if (lastPlayed[group] && picked === lastPlayed[group]) {
-picked = list[Math.floor(Math.random() * list.length)];
-}
-
-lastPlayed[group] = picked;
-return picked;
-}
-
 function createAudioPool(urls, count) {
 var result = [];
 
@@ -1099,13 +1143,13 @@ var wetness = parseFloat(wetnessSlider.value) || 0;
 if (sliderVolume <= 0) return;
 
 var surfaceList = soundLists[currentSurface] || soundLists.wood;
-var footstepUrl = randomItem(surfaceList, currentSurface);
+var footstepUrl = randomItem(surfaceList, "footstep-" + currentSurface, "footstep");
 var footstepVolume = sliderVolume * getFootstepSpeedVolume();
 
 playClip(footstepUrl, currentSurface, footstepVolume, getFootstepPitch());
 
 if (wetness > 0 && Math.random() <= getWetChance()) {
-var wetUrl = randomItem(soundLists.wet, "wet");
+var wetUrl = randomItem(soundLists.wet, "splash", "splash");
 var wetBaseGain = dataNumber("wetVolumeMultiplier", 0.85);
 var wetMaxVolume = dataNumber("wetVolumeMax", 1);
 var wetVolume = sliderVolume * wetBaseGain * getWetVolumeFromWetness() * getWetSpeedVolume() * getWetRawSpeedVolume();
@@ -1115,7 +1159,7 @@ playClip(wetUrl, "wet", wetVolume, getWetPitch());
 }
 
 if (currentSurface === "wood" && creakBox.checked && Math.random() <= getCreakChance()) {
-var creakUrl = randomItem(soundLists.creak, "creak");
+var creakUrl = randomItem(soundLists.creak, "creak", "creak");
 var creakBaseGain = dataNumber("creakVolumeMultiplier", 0.8);
 var creakMaxVolume = dataNumber("creakVolumeMax", 1);
 var creakVolume = sliderVolume * creakBaseGain * getCreakSpeedVolume();
