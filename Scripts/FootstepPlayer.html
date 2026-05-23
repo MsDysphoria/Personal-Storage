@@ -60,7 +60,7 @@ data-footstep-pitch-at-min-speed="0.9"
 data-footstep-pitch-at-mid-speed="1"
 data-footstep-pitch-at-max-speed="1.2"
 
-data-wet-pitch-at-min-speed="0.85"
+data-wet-pitch-at-min-speed="0.8"
 data-wet-pitch-at-mid-speed="1"
 data-wet-pitch-at-max-speed="1.15"
 
@@ -73,20 +73,27 @@ data-footstep-volume-at-mid-speed="0.75"
 data-footstep-volume-at-max-speed="1"
 
 data-wet-volume-at-min-speed="0.5"
-data-wet-volume-at-mid-speed="0.75"
-data-wet-volume-at-max-speed="1"
+data-wet-volume-at-mid-speed="0.675"
+data-wet-volume-at-max-speed="0.8"
 
 data-creak-volume-at-min-speed="0.5"
 data-creak-volume-at-mid-speed="0.75"
 data-creak-volume-at-max-speed="1"
 
-data-wet-full-chance-at="0.3"
+data-wet-full-chance-at="0.5"
+data-wet-chance-speed-multiplier="1"
+data-wet-chance-max="1"
 data-wet-volume-multiplier="0.85"
+data-wet-volume-wetness-full-at="1"
+data-wet-volume-speed-multiplier="1"
+data-wet-volume-speed-max="2"
+data-wet-volume-max="1"
 
 data-creak-chance-at-min-speed="0"
 data-creak-chance-at-mid-speed="0.15"
 data-creak-chance-at-max-speed="0.30"
 data-creak-volume-multiplier="0.8"
+data-creak-volume-max="1"
 data-creak-delay-min="0"
 data-creak-delay-max="0.08"
 >
@@ -510,9 +517,7 @@ wet: [
 "https://msdysphoria.github.io/Personal-Storage/Sound%20FX/Footstep_Wet_5.ogg",
 "https://msdysphoria.github.io/Personal-Storage/Sound%20FX/Footstep_Wet_6.ogg",
 "https://msdysphoria.github.io/Personal-Storage/Sound%20FX/Footstep_Wet_7.ogg",
-"https://msdysphoria.github.io/Personal-Storage/Sound%20FX/Footstep_Wet_8.ogg",
-"https://msdysphoria.github.io/Personal-Storage/Sound%20FX/Footstep_Wet_9.ogg",
-"https://msdysphoria.github.io/Personal-Storage/Sound%20FX/Footstep_Wet_10.ogg"
+"https://msdysphoria.github.io/Personal-Storage/Sound%20FX/Footstep_Wet_8.ogg"
 ],
 creak: [
 "https://msdysphoria.github.io/Personal-Storage/Sound%20FX/Footstep_Creak_1.ogg",
@@ -674,16 +679,39 @@ function getWetSpeedVolume() {
 return getSpeedMappedValue("wetVolume", 0.5, 0.75, 1);
 }
 
+function getWetRawSpeedVolume() {
+var speedMultiplier = dataNumber("wetVolumeSpeedMultiplier", 1);
+var speedMax = dataNumber("wetVolumeSpeedMax", 2);
+return clamp(getSpeed() * speedMultiplier, 0, speedMax);
+}
+
+function getWetVolumeFromWetness() {
+var wetness = parseFloat(wetnessSlider.value) || 0;
+var fullAt = dataNumber("wetVolumeWetnessFullAt", 1);
+return clamp(wetness / fullAt, 0, 1);
+}
+
 function getCreakSpeedVolume() {
-return getSpeedMappedValue("creakVolume", 0.5, 0.75, 1);
+var value = getSpeedMappedValue("creakVolume", 0.5, 0.75, 1);
+var max = dataNumber("creakVolumeMax", 1);
+return clamp(value, 0, max);
 }
 
 function getWetChance() {
 var wetness = parseFloat(wetnessSlider.value) || 0;
-var fullAt = dataNumber("wetFullChanceAt", 0.3);
-return clamp(wetness / fullAt, 0, 1);
+var fullAt = dataNumber("wetFullChanceAt", 0.5);
+var speedMultiplier = dataNumber("wetChanceSpeedMultiplier", 1);
+var maxChance = dataNumber("wetChanceMax", 1);
+
+if (wetness >= fullAt) {
+return maxChance;
 }
 
+var baseChance = clamp(wetness / fullAt, 0, 1);
+var speedChance = getSpeed() * speedMultiplier;
+
+return clamp(baseChance * speedChance, 0, maxChance);
+}
 function getCreakChance() {
 return getSpeedMappedValue("creakChance", 0, 0.15, 0.3);
 }
@@ -1079,7 +1107,9 @@ playClip(footstepUrl, currentSurface, footstepVolume, getFootstepPitch());
 if (wetness > 0 && Math.random() <= getWetChance()) {
 var wetUrl = randomItem(soundLists.wet, "wet");
 var wetBaseGain = dataNumber("wetVolumeMultiplier", 0.85);
-var wetVolume = sliderVolume * wetBaseGain * getWetSpeedVolume();
+var wetMaxVolume = dataNumber("wetVolumeMax", 1);
+var wetVolume = sliderVolume * wetBaseGain * getWetVolumeFromWetness() * getWetSpeedVolume() * getWetRawSpeedVolume();
+wetVolume = clamp(wetVolume, 0, wetMaxVolume);
 
 playClip(wetUrl, "wet", wetVolume, getWetPitch());
 }
@@ -1087,7 +1117,9 @@ playClip(wetUrl, "wet", wetVolume, getWetPitch());
 if (currentSurface === "wood" && creakBox.checked && Math.random() <= getCreakChance()) {
 var creakUrl = randomItem(soundLists.creak, "creak");
 var creakBaseGain = dataNumber("creakVolumeMultiplier", 0.8);
+var creakMaxVolume = dataNumber("creakVolumeMax", 1);
 var creakVolume = sliderVolume * creakBaseGain * getCreakSpeedVolume();
+creakVolume = clamp(creakVolume, 0, creakMaxVolume);
 var delayMin = dataNumber("creakDelayMin", 0);
 var delayMax = dataNumber("creakDelayMax", 0.08);
 var delay = lerp(delayMin, delayMax, Math.random()) * 1000;
