@@ -14,7 +14,7 @@ data-animation-min-speed="0.1"
 data-animation-max-speed="5"
 data-animation-render-fps="0"
 data-animation-render-smoothing="false"
-data-animation-scale="0.85"
+data-animation-scale="1"
 data-animation-scale-x="1"
 data-animation-scale-y="1"
 data-animation-position-y="0"
@@ -60,6 +60,53 @@ data-footstep-pan-random="0.03"
 data-splash-pan-random="0.08"
 data-creak-pan-random="0.05"
 data-audio-panning-enabled="true"
+
+data-default-ambience="clean"
+data-ambience-master-gain="1"
+
+data-ambience-clean-low-gain="0"
+data-ambience-clean-mid-gain="0"
+data-ambience-clean-high-gain="0"
+data-ambience-clean-lowpass-frequency="20000"
+data-ambience-clean-echo-time="0.16"
+data-ambience-clean-echo-feedback="0"
+data-ambience-clean-echo-wet="0"
+data-ambience-clean-reverb-wet="0"
+data-ambience-clean-reverb-seconds="0.25"
+data-ambience-clean-reverb-decay="1.2"
+
+data-ambience-small-room-low-gain="1"
+data-ambience-small-room-mid-gain="0"
+data-ambience-small-room-high-gain="-1"
+data-ambience-small-room-lowpass-frequency="14000"
+data-ambience-small-room-echo-time="0.09"
+data-ambience-small-room-echo-feedback="0.12"
+data-ambience-small-room-echo-wet="0.06"
+data-ambience-small-room-reverb-wet="0.14"
+data-ambience-small-room-reverb-seconds="0.55"
+data-ambience-small-room-reverb-decay="1.8"
+
+data-ambience-stone-corridor-low-gain="-1"
+data-ambience-stone-corridor-mid-gain="0"
+data-ambience-stone-corridor-high-gain="2"
+data-ambience-stone-corridor-lowpass-frequency="12000"
+data-ambience-stone-corridor-echo-time="0.18"
+data-ambience-stone-corridor-echo-feedback="0.28"
+data-ambience-stone-corridor-echo-wet="0.12"
+data-ambience-stone-corridor-reverb-wet="0.16"
+data-ambience-stone-corridor-reverb-seconds="1.15"
+data-ambience-stone-corridor-reverb-decay="2.4"
+
+data-ambience-cave-low-gain="2"
+data-ambience-cave-mid-gain="-1.5"
+data-ambience-cave-high-gain="-3"
+data-ambience-cave-lowpass-frequency="6500"
+data-ambience-cave-echo-time="0.32"
+data-ambience-cave-echo-feedback="0.36"
+data-ambience-cave-echo-wet="0.18"
+data-ambience-cave-reverb-wet="0.26"
+data-ambience-cave-reverb-seconds="2.25"
+data-ambience-cave-reverb-decay="3.4"
 
 data-left-foot-origin-x="43"
 data-right-foot-origin-x="57"
@@ -125,7 +172,7 @@ data-dust-particles-enabled="true"
 data-dust-particle-srcs=""
 data-dust-particle-surfaces="wood,dirt,concrete"
 data-dust-particle-origin-offset-x="15"
-data-dust-particle-origin-offset-y="12"
+data-dust-particle-origin-offset-y="9"
 data-dust-particle-count-min="4"
 data-dust-particle-count-max="8"
 data-dust-particle-size-min="0.5"
@@ -145,7 +192,7 @@ data-dust-particle-scale-at-max-speed="1.45"
 data-splash-particles-enabled="true"
 data-splash-particle-srcs=""
 data-splash-particle-origin-offset-x="16"
-data-splash-particle-origin-offset-y="12"
+data-splash-particle-origin-offset-y="9"
 data-splash-particles-follow-audio-chance="true"
 data-splash-particle-count-min="3"
 data-splash-particle-count-max="7"
@@ -181,6 +228,16 @@ data-splash-particle-scale-at-full-wetness="1"
 <button class="dfp-surface-button" type="button" data-surface="dirt">Dirt</button>
 <button class="dfp-surface-button" type="button" data-surface="concrete">Concrete</button>
 </div>
+</div>
+
+<div class="dfp-row">
+<div class="dfp-label">Ambience</div>
+<select class="dfp-ambience">
+<option value="clean">Clean</option>
+<option value="small-room">Small Room</option>
+<option value="stone-corridor">Stone Corridor</option>
+<option value="cave">Cave</option>
+</select>
 </div>
 
 <div class="dfp-slider-row">
@@ -340,6 +397,31 @@ background: var(--dfp-button-active-bg);
 border-color: var(--dfp-button-active-border);
 color: var(--dfp-text);
 box-shadow: 0 0 0 1px var(--dfp-accent-soft), 0 0 14px rgb(159 71 17 / 22%);
+}
+
+
+.dfp-ambience {
+height: 2rem;
+width: 100%;
+border: 1px solid var(--dfp-border-soft);
+background: var(--dfp-button-bg);
+color: var(--dfp-text-soft);
+font: inherit;
+font-size: 0.8rem;
+padding: 0 0.55rem;
+cursor: pointer;
+outline: none;
+}
+
+.dfp-ambience:hover,
+.dfp-ambience:focus {
+color: var(--dfp-text);
+border-color: var(--dfp-border);
+}
+
+.dfp-ambience option {
+background: rgb(18 18 18);
+color: rgb(196 181 169);
 }
 
 .dfp-check-row {
@@ -629,6 +711,7 @@ var creakBox = root.querySelector(".dfp-creak");
 var volumeSlider = root.querySelector(".dfp-volume");
 var wetnessSlider = root.querySelector(".dfp-wetness");
 var speedSlider = root.querySelector(".dfp-speed");
+var ambienceSelect = root.querySelector(".dfp-ambience");
 var animationVideo = root.querySelector(".dfp-animation-video");
 var animationCanvas = root.querySelector(".dfp-animation-canvas");
 var animationCanvasContext = animationCanvas ? animationCanvas.getContext("2d") : null;
@@ -660,6 +743,8 @@ var floorVisualSurface = null;
 var floorTransitionTimer = null;
 
 var audioContext = null;
+var ambienceGraph = null;
+var currentAmbience = root.dataset.defaultAmbience || "clean";
 var resumeVisibilityTimer = null;
 var isPageVisible = !document.hidden;
 var isInView = true;
@@ -954,8 +1039,6 @@ return picked;
 }
 
 function getAudioContext() {
-if (!dataBool("audioPanningEnabled", true)) return null;
-
 try {
 var AudioContextClass = window.AudioContext || window.webkitAudioContext;
 if (!AudioContextClass) return null;
@@ -974,18 +1057,205 @@ return null;
 }
 }
 
+function pascalCase(value) {
+return String(value || "").split("-").map(function (part) {
+return part.charAt(0).toUpperCase() + part.slice(1);
+}).join("");
+}
+
+function ambienceNumber(name, fallback) {
+return dataNumber("ambience" + pascalCase(currentAmbience) + name, fallback);
+}
+
+function setAudioParam(param, value, time) {
+if (!param) return;
+
+try {
+var context = getAudioContext();
+var now = context ? context.currentTime : 0;
+var smooth = Math.max(0.01, time || 0.08);
+
+param.cancelScheduledValues(now);
+param.setTargetAtTime(value, now, smooth);
+} catch (error) {
+try {
+param.value = value;
+} catch (innerError) {}
+}
+}
+
+function createImpulseBuffer(context, seconds, decay) {
+var sampleRate = context.sampleRate;
+var length = Math.max(1, Math.floor(sampleRate * Math.max(0.05, seconds)));
+var impulse = context.createBuffer(2, length, sampleRate);
+
+for (var channel = 0; channel < 2; channel++) {
+var data = impulse.getChannelData(channel);
+
+for (var i = 0; i < length; i++) {
+var t = i / length;
+var envelope = Math.pow(1 - t, Math.max(0.1, decay));
+data[i] = (Math.random() * 2 - 1) * envelope;
+}
+}
+
+return impulse;
+}
+
+function setupAmbienceGraph() {
+var context = getAudioContext();
+if (!context) return null;
+
+if (ambienceGraph) return ambienceGraph;
+
+var input = context.createGain();
+
+var low = context.createBiquadFilter();
+low.type = "lowshelf";
+low.frequency.value = 220;
+
+var mid = context.createBiquadFilter();
+mid.type = "peaking";
+mid.frequency.value = 950;
+mid.Q.value = 0.9;
+
+var high = context.createBiquadFilter();
+high.type = "highshelf";
+high.frequency.value = 4200;
+
+var lowpass = context.createBiquadFilter();
+lowpass.type = "lowpass";
+lowpass.frequency.value = 20000;
+lowpass.Q.value = 0.1;
+
+var dryGain = context.createGain();
+var echoSend = context.createGain();
+var echoDelay = context.createDelay(1.5);
+var echoFeedback = context.createGain();
+var echoWet = context.createGain();
+
+var reverbSend = context.createGain();
+var convolver = context.createConvolver();
+var reverbWet = context.createGain();
+
+var masterGain = context.createGain();
+var compressor = context.createDynamicsCompressor();
+
+compressor.threshold.value = -12;
+compressor.knee.value = 16;
+compressor.ratio.value = 6;
+compressor.attack.value = 0.003;
+compressor.release.value = 0.18;
+
+input.connect(low);
+low.connect(mid);
+mid.connect(high);
+high.connect(lowpass);
+
+lowpass.connect(dryGain);
+dryGain.connect(masterGain);
+
+lowpass.connect(echoSend);
+echoSend.connect(echoDelay);
+echoDelay.connect(echoFeedback);
+echoFeedback.connect(echoDelay);
+echoDelay.connect(echoWet);
+echoWet.connect(masterGain);
+
+lowpass.connect(reverbSend);
+reverbSend.connect(convolver);
+convolver.connect(reverbWet);
+reverbWet.connect(masterGain);
+
+masterGain.connect(compressor);
+compressor.connect(context.destination);
+
+ambienceGraph = {
+input: input,
+low: low,
+mid: mid,
+high: high,
+lowpass: lowpass,
+dryGain: dryGain,
+echoSend: echoSend,
+echoDelay: echoDelay,
+echoFeedback: echoFeedback,
+echoWet: echoWet,
+reverbSend: reverbSend,
+convolver: convolver,
+reverbWet: reverbWet,
+masterGain: masterGain,
+compressor: compressor,
+impulseKey: ""
+};
+
+applyAmbiencePreset();
+
+return ambienceGraph;
+}
+
+function applyAmbiencePreset() {
+var context = getAudioContext();
+var graph = setupAmbienceGraph();
+
+if (!context || !graph) return;
+
+var masterGainValue = dataNumber("ambienceMasterGain", 1);
+
+var lowGain = ambienceNumber("LowGain", 0);
+var midGain = ambienceNumber("MidGain", 0);
+var highGain = ambienceNumber("HighGain", 0);
+var lowpassFrequency = ambienceNumber("LowpassFrequency", 20000);
+
+var echoTime = ambienceNumber("EchoTime", 0.16);
+var echoFeedback = ambienceNumber("EchoFeedback", 0);
+var echoWet = ambienceNumber("EchoWet", 0);
+
+var reverbWet = ambienceNumber("ReverbWet", 0);
+var reverbSeconds = ambienceNumber("ReverbSeconds", 0.25);
+var reverbDecay = ambienceNumber("ReverbDecay", 1.2);
+var impulseKey = currentAmbience + "|" + reverbSeconds + "|" + reverbDecay;
+
+setAudioParam(graph.masterGain.gain, masterGainValue, 0.08);
+
+setAudioParam(graph.low.gain, lowGain, 0.08);
+setAudioParam(graph.mid.gain, midGain, 0.08);
+setAudioParam(graph.high.gain, highGain, 0.08);
+setAudioParam(graph.lowpass.frequency, clamp(lowpassFrequency, 200, 20000), 0.08);
+
+setAudioParam(graph.echoDelay.delayTime, clamp(echoTime, 0.01, 1.5), 0.08);
+setAudioParam(graph.echoFeedback.gain, clamp(echoFeedback, 0, 0.85), 0.08);
+setAudioParam(graph.echoWet.gain, clamp(echoWet, 0, 1), 0.08);
+setAudioParam(graph.echoSend.gain, echoWet > 0 ? 1 : 0, 0.08);
+
+setAudioParam(graph.reverbWet.gain, clamp(reverbWet, 0, 1), 0.08);
+setAudioParam(graph.reverbSend.gain, reverbWet > 0 ? 1 : 0, 0.08);
+
+if (graph.impulseKey !== impulseKey) {
+graph.convolver.buffer = createImpulseBuffer(context, reverbSeconds, reverbDecay);
+graph.impulseKey = impulseKey;
+}
+}
+
 function setAudioPan(audio, pan) {
-if (!audio || !dataBool("audioPanningEnabled", true)) return;
+if (!audio) return;
 
 var context = getAudioContext();
-if (!context || !context.createStereoPanner) return;
+var graph = setupAmbienceGraph();
+
+if (!context || !graph) return;
 
 try {
 if (!audio._dfpSource) {
 audio._dfpSource = context.createMediaElementSource(audio);
+
+if (dataBool("audioPanningEnabled", true) && context.createStereoPanner) {
 audio._dfpPanner = context.createStereoPanner();
 audio._dfpSource.connect(audio._dfpPanner);
-audio._dfpPanner.connect(context.destination);
+audio._dfpPanner.connect(graph.input);
+} else {
+audio._dfpSource.connect(graph.input);
+}
 }
 
 if (audio._dfpPanner) {
@@ -1747,6 +2017,15 @@ updateUI();
 });
 });
 
+if (ambienceSelect) {
+ambienceSelect.value = currentAmbience;
+
+ambienceSelect.addEventListener("change", function () {
+currentAmbience = ambienceSelect.value || "clean";
+applyAmbiencePreset();
+});
+}
+
 volumeSlider.addEventListener("input", function () {
 var volume = parseFloat(volumeSlider.value) || 0;
 
@@ -1804,6 +2083,12 @@ speedSlider.max = root.dataset.speedMax || "2";
 preparePools();
 setupAnimationVideo();
 setupVisibilityHandlers();
+
+if (ambienceSelect) {
+ambienceSelect.value = currentAmbience;
+}
+
+applyAmbiencePreset();
 updateUI();
 
 isAudioArmed = (parseFloat(volumeSlider.value) || 0) > 0;
