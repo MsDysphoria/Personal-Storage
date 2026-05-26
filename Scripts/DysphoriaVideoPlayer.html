@@ -44,7 +44,7 @@ data-time-shadow="drop-shadow(0 0 2px rgba(0, 0, 0, 0.95)) drop-shadow(0 0 8px r
 data-hover-time-opacity="0.95"
 data-hover-time-shadow="drop-shadow(0 0 2px rgba(0, 0, 0, 0.95)) drop-shadow(0 0 8px rgba(0, 0, 0, 0.75))"
 
-data-waveform-bars="320"
+data-waveform-bars="360"
 data-waveform-width-scale="0.99"
 data-waveform-height="5.5rem"
 data-waveform-y-position="0.9rem"
@@ -898,7 +898,6 @@ box-shadow:
 0 0 8px rgb(159 71 17 / 40%);
 }
 </style>
-
 <script>
 (function () {
 var players = document.querySelectorAll(".dysphoria-simple-video");
@@ -942,6 +941,12 @@ var waveformInlineTried = false;
 var waveformJsonTried = false;
 var waveformAnalysisTimer = null;
 var waveformDrawPending = false;
+var waveformDataVersion = 0;
+var waveformCache = {
+base: null,
+played: null,
+key: ""
+};
 
 var frame = null;
 var audioFeatureTimer = null;
@@ -1010,15 +1015,32 @@ return 8;
 }, 0);
 }
 
-function requestWaveformDraw() {
+function shouldDrawWaveform(force) {
+if (force) return true;
+if (document.hidden) return false;
+
+return (
+root.classList.contains("dsv-pointer-inside") ||
+root.classList.contains("dsv-fullscreen") ||
+isPointerDown
+);
+}
+
+function requestWaveformDraw(force) {
+if (!shouldDrawWaveform(force)) return;
 if (waveformDrawPending) return;
 
 waveformDrawPending = true;
 
 requestAnimationFrame(function () {
 waveformDrawPending = false;
-drawWaveform();
+drawWaveform(force);
 });
+}
+
+function markWaveformChanged() {
+waveformDataVersion++;
+waveformCache.key = "";
 }
 
 function setVolumeFill() {
@@ -1092,6 +1114,8 @@ waveformValues = [];
 for (var i = 0; i < bars; i++) {
 waveformValues.push(minHeight);
 }
+
+markWaveformChanged();
 }
 
 function generateBaseWaveform() {
@@ -1119,6 +1143,8 @@ value = minHeight + ((maxHeight - minHeight) * value);
 
 waveformValues.push(value);
 }
+
+markWaveformChanged();
 }
 
 function prepareWaveformSource() {
@@ -1143,36 +1169,49 @@ return;
 generateAudioWaveform();
 }
 
-function parseWaveformValuesInput(input) {
-if (!input) return null;
+function extractWaveformPayload(input) {
+var payload = {
+values: null,
+mode: ""
+};
+
+if (!input) return payload;
 
 if (Array.isArray(input)) {
-return input;
+payload.values = input;
+return payload;
 }
 
-if (typeof input === "object" && Array.isArray(input.values)) {
-return input.values;
+if (typeof input === "object") {
+payload.mode = String(input.valuesMode || input.mode || "").trim();
+
+if (Array.isArray(input.values)) {
+payload.values = input.values;
+return payload;
 }
 
-if (typeof input === "object" && Array.isArray(input.waveform)) {
-return input.waveform;
+if (Array.isArray(input.waveform)) {
+payload.values = input.waveform;
+return payload;
+}
+
+return payload;
 }
 
 if (typeof input === "string") {
 try {
 var parsed = JSON.parse(input);
-
-if (Array.isArray(parsed)) return parsed;
-if (parsed && Array.isArray(parsed.values)) return parsed.values;
-if (parsed && Array.isArray(parsed.waveform)) return parsed.waveform;
+return extractWaveformPayload(parsed);
 } catch (error) {}
 
-return input.split(",").map(function (part) {
+payload.values = input.split(",").map(function (part) {
 return parseFloat(part.trim());
 });
+
+return payload;
 }
 
-return null;
+return payload;
 }
 
 function resampleValues(values, targetCount) {
@@ -1195,7 +1234,8 @@ return output;
 }
 
 function applyPrecomputedWaveformValues(input) {
-var parsedValues = parseWaveformValuesInput(input);
+var payload = extractWaveformPayload(input);
+var parsedValues = payload.values;
 
 if (!parsedValues || !parsedValues.length) return false;
 
@@ -1213,7 +1253,9 @@ if (dataBool("waveformJsonResample", true)) {
 numericValues = resampleValues(numericValues, getTargetWaveformBars());
 }
 
-var mode = dataText("waveformJsonValuesMode", "height").toLowerCase();
+var modeOverride = dataText("waveformJsonValuesMode", "").trim();
+var mode = (modeOverride || payload.mode || "height").toLowerCase();
+
 var minHeight = clamp(dataNumber("waveformMinBarHeight", 0.08), 0.001, 2);
 var maxHeight = clamp(dataNumber("waveformMaxBarHeight", 0.92), minHeight, 2);
 var power = Math.max(0.05, dataNumber("waveformAnalysisPower", 0.72));
@@ -1232,7 +1274,9 @@ waveformSourceReady = true;
 waveformSourceLoading = false;
 waveformSourceFailed = false;
 
-requestWaveformDraw();
+markWaveformChanged();
+requestWaveformDraw(true);
+
 return true;
 }
 
@@ -1257,7 +1301,6 @@ throw new Error("Invalid waveform JSON.");
 })
 .catch(function () {
 waveformSourceLoading = false;
-
 generateAudioWaveform();
 });
 }
@@ -1351,7 +1394,7 @@ waveformSourceLoading = false;
 
 if (dataBool("waveformRealAudioFallback", true)) {
 generateBaseWaveform();
-requestWaveformDraw();
+requestWaveformDraw(true);
 }
 }
 
@@ -1400,7 +1443,8 @@ waveformValues[i] = minHeight;
 rawValues[i] = 0;
 }
 
-requestWaveformDraw();
+markWaveformChanged();
+requestWaveformDraw(true);
 
 function processChunk(deadline) {
 var processed = 0;
@@ -1448,7 +1492,8 @@ processedSinceDraw++;
 
 if (processedSinceDraw >= redrawEvery || barIndex >= bars) {
 processedSinceDraw = 0;
-requestWaveformDraw();
+markWaveformChanged();
+requestWaveformDraw(true);
 }
 
 if (barIndex < bars) {
@@ -1474,7 +1519,8 @@ if (!frames) {
 waveformValues = targets;
 waveformSourceReady = true;
 waveformSourceLoading = false;
-requestWaveformDraw();
+markWaveformChanged();
+requestWaveformDraw(true);
 return;
 }
 
@@ -1492,7 +1538,8 @@ var start = startValues[i] === undefined ? targets[i] : startValues[i];
 waveformValues[i] = start + ((targets[i] - start) * eased);
 }
 
-requestWaveformDraw();
+markWaveformChanged();
+requestWaveformDraw(true);
 
 if (currentFrame < frames) {
 requestAnimationFrame(animate);
@@ -1502,7 +1549,8 @@ return;
 waveformValues = targets;
 waveformSourceReady = true;
 waveformSourceLoading = false;
-requestWaveformDraw();
+markWaveformChanged();
+requestWaveformDraw(true);
 }
 
 requestAnimationFrame(animate);
@@ -1519,10 +1567,18 @@ var height = Math.max(1, Math.round(rect.height * ratio));
 if (waveformCanvas.width !== width || waveformCanvas.height !== height) {
 waveformCanvas.width = width;
 waveformCanvas.height = height;
+waveformCache.key = "";
 return true;
 }
 
 return false;
+}
+
+function makeRenderCanvas(width, height, pixelRatio) {
+var canvas = document.createElement("canvas");
+canvas.width = Math.max(1, Math.round(width * pixelRatio));
+canvas.height = Math.max(1, Math.round(height * pixelRatio));
+return canvas;
 }
 
 function roundedRect(ctx, x, y, width, height, radius) {
@@ -1541,52 +1597,22 @@ ctx.quadraticCurveTo(x, y, x + radius, y);
 ctx.closePath();
 }
 
-function getProgressRatio() {
-if (videoLoaded && Number.isFinite(video.duration) && video.duration > 0) {
-return clamp((video.currentTime || 0) / video.duration, 0, 1);
-}
-
-return clamp(pendingSeekRatio || 0, 0, 1);
-}
-
-function drawWaveform() {
-if (!waveformContext || !waveformValues.length) return;
-
-resizeWaveformCanvas();
-
-var ctx = waveformContext;
-var pixelRatio = window.devicePixelRatio || 1;
-var width = Math.max(1, waveformCanvas.width / pixelRatio);
-var height = Math.max(1, waveformCanvas.height / pixelRatio);
-var progressRatio = getProgressRatio();
-
-if (waveformWrap) {
-waveformWrap.setAttribute("aria-valuenow", String(Math.round(progressRatio * 100)));
-}
-
-var playedColor = dataText("waveformPlayedColor", "rgba(255, 104, 18, 0.88)");
-var unplayedColor = dataText("waveformUnplayedColor", "rgba(218, 210, 202, 0.40)");
-var centerColor = dataText("waveformCenterColor", "rgba(218, 210, 202, 0.13)");
-var cursorColor = dataText("waveformCursorColor", "rgba(255, 190, 91, 0.76)");
-
+function drawBarsToContext(ctx, width, height, pixelRatio, color, includeCenter) {
 var bars = waveformValues.length;
 var barWidthRatio = clamp(dataNumber("waveformBarWidthRatio", 0.58), 0.08, 0.92);
-var cursorYScale = clamp(dataNumber("waveformCursorYScale", 0.76), 0.02, 1.8);
 var autoSlotWidth = width / Math.max(1, bars);
 var barWidth = autoSlotWidth * barWidthRatio;
 var step = bars > 1 ? (width - barWidth) / (bars - 1) : 0;
 var centerY = height * 0.5;
-var playedX = width * progressRatio;
 var radius = Math.max(0.5, barWidth * 0.48);
 var barScale = clamp(dataNumber("waveformBarHeightScale", 0.76), 0.05, 1.5);
-var cursorHeight = height * cursorYScale;
-var cursorY = centerY - (cursorHeight * 0.5);
 
-ctx.setTransform(pixelRatio, 0, 0, pixelRatio, 0, 0);
-ctx.clearRect(0, 0, width, height);
-
-ctx.fillStyle = centerColor;
+if (includeCenter) {
+ctx.fillStyle = dataText("waveformCenterColor", "rgba(218, 210, 202, 0.13)");
 ctx.fillRect(0, centerY, width, Math.max(1 / pixelRatio, 0.5));
+}
+
+ctx.fillStyle = color;
 
 for (var i = 0; i < bars; i++) {
 var x = bars > 1 ? i * step : 0;
@@ -1595,19 +1621,156 @@ if (i === bars - 1) {
 x = width - barWidth;
 }
 
-var barCenter = x + (barWidth * 0.5);
 var value = waveformValues[i] || 0;
 var barHeight = Math.max(1.5, value * height * barScale);
 var y = centerY - (barHeight * 0.5);
 
-ctx.fillStyle = barCenter <= playedX ? playedColor : unplayedColor;
-
 roundedRect(ctx, x, y, barWidth, barHeight, radius);
 ctx.fill();
 }
+}
+
+function getWaveformCacheKey(width, height, pixelRatio) {
+return [
+Math.round(width * pixelRatio),
+Math.round(height * pixelRatio),
+pixelRatio,
+waveformDataVersion,
+dataText("waveformPlayedColor", ""),
+dataText("waveformUnplayedColor", ""),
+dataText("waveformCenterColor", ""),
+dataNumber("waveformBarWidthRatio", 0.58),
+dataNumber("waveformBarHeightScale", 0.76)
+].join("|");
+}
+
+function ensureWaveformCache(width, height, pixelRatio) {
+var key = getWaveformCacheKey(width, height, pixelRatio);
+
+if (waveformCache.key === key && waveformCache.base && waveformCache.played) {
+return waveformCache;
+}
+
+var baseCanvas = makeRenderCanvas(width, height, pixelRatio);
+var playedCanvas = makeRenderCanvas(width, height, pixelRatio);
+
+var baseContext = baseCanvas.getContext("2d");
+var playedContext = playedCanvas.getContext("2d");
+
+baseContext.setTransform(pixelRatio, 0, 0, pixelRatio, 0, 0);
+playedContext.setTransform(pixelRatio, 0, 0, pixelRatio, 0, 0);
+
+baseContext.clearRect(0, 0, width, height);
+playedContext.clearRect(0, 0, width, height);
+
+drawBarsToContext(
+baseContext,
+width,
+height,
+pixelRatio,
+dataText("waveformUnplayedColor", "rgba(218, 210, 202, 0.40)"),
+true
+);
+
+drawBarsToContext(
+playedContext,
+width,
+height,
+pixelRatio,
+dataText("waveformPlayedColor", "rgba(255, 104, 18, 0.88)"),
+false
+);
+
+waveformCache.base = baseCanvas;
+waveformCache.played = playedCanvas;
+waveformCache.key = key;
+
+return waveformCache;
+}
+
+function getProgressRatio() {
+if (videoLoaded && Number.isFinite(video.duration) && video.duration > 0) {
+return clamp((video.currentTime || 0) / video.duration, 0, 1);
+}
+
+return clamp(pendingSeekRatio || 0, 0, 1);
+}
+
+function drawWaveform(force) {
+if (!waveformContext || !waveformValues.length) return;
+if (!shouldDrawWaveform(force)) return;
+
+resizeWaveformCanvas();
+
+var ctx = waveformContext;
+var pixelRatio = window.devicePixelRatio || 1;
+var width = Math.max(1, waveformCanvas.width / pixelRatio);
+var height = Math.max(1, waveformCanvas.height / pixelRatio);
+var progressRatio = getProgressRatio();
+var playedX = width * progressRatio;
+
+if (waveformWrap) {
+waveformWrap.setAttribute("aria-valuenow", String(Math.round(progressRatio * 100)));
+}
+
+ctx.setTransform(pixelRatio, 0, 0, pixelRatio, 0, 0);
+ctx.clearRect(0, 0, width, height);
+
+if (dataBool("waveformPrerender", true)) {
+var cache = ensureWaveformCache(width, height, pixelRatio);
+
+ctx.drawImage(cache.base, 0, 0, width, height);
+
+if (playedX > 0) {
+ctx.save();
+ctx.beginPath();
+ctx.rect(0, 0, playedX, height);
+ctx.clip();
+ctx.drawImage(cache.played, 0, 0, width, height);
+ctx.restore();
+}
+} else {
+drawBarsToContext(
+ctx,
+width,
+height,
+pixelRatio,
+dataText("waveformUnplayedColor", "rgba(218, 210, 202, 0.40)"),
+true
+);
+
+if (playedX > 0) {
+ctx.save();
+ctx.beginPath();
+ctx.rect(0, 0, playedX, height);
+ctx.clip();
+
+drawBarsToContext(
+ctx,
+width,
+height,
+pixelRatio,
+dataText("waveformPlayedColor", "rgba(255, 104, 18, 0.88)"),
+false
+);
+
+ctx.restore();
+}
+}
+
+var cursorColor = dataText("waveformCursorColor", "rgba(255, 190, 91, 0.76)");
+var cursorYScale = clamp(dataNumber("waveformCursorYScale", 0.76), 0.02, 1.8);
+var centerY = height * 0.5;
+var cursorHeight = height * cursorYScale;
+var cursorY = centerY - (cursorHeight * 0.5);
 
 ctx.fillStyle = cursorColor;
-ctx.fillRect(playedX, cursorY, Math.max(1 / pixelRatio, 0.75), cursorHeight);
+ctx.fillRect(
+playedX,
+cursorY,
+Math.max(1 / pixelRatio, 0.75),
+cursorHeight
+);
 }
 
 function setAudioGlow(value) {
@@ -1769,13 +1932,13 @@ audioFeatureTimer = null;
 
 function makeWaveformVisible() {
 if (waveformReady) {
-requestWaveformDraw();
+requestWaveformDraw(true);
 return;
 }
 
 waveformReady = true;
 root.classList.add("dsv-waveform-ready");
-requestWaveformDraw();
+requestWaveformDraw(true);
 }
 
 function updateLoopState() {
@@ -2036,7 +2199,6 @@ thumbnail.style.backgroundImage = 'url("' + thumbnailSrc.replace(/"/g, "%22") + 
 
 setVolumeFill();
 generateSilentWaveform();
-requestWaveformDraw();
 updateTimeDisplay();
 updateButton();
 updateLoopState();
@@ -2078,7 +2240,7 @@ if (!Number.isFinite(video.duration) || video.duration <= 0) return;
 try {
 video.currentTime = video.duration * clamp(pendingSeekRatio, 0, 1);
 pendingSeekRatio = null;
-requestWaveformDraw();
+requestWaveformDraw(true);
 updateTimeDisplay();
 } catch (error) {}
 }
@@ -2093,7 +2255,11 @@ toggle.setAttribute("aria-label", playing ? "Stop video" : "Start video");
 
 function updateLoop() {
 updateAudioFeatures();
-drawWaveform();
+
+if (shouldDrawWaveform(false)) {
+drawWaveform(false);
+}
+
 updateTimeDisplay();
 
 if (!video.paused && !video.ended) {
@@ -2120,7 +2286,7 @@ stopAudioFeatureTimer();
 }
 
 updateAudioFeatures();
-requestWaveformDraw();
+requestWaveformDraw(true);
 updateTimeDisplay();
 }
 
@@ -2184,7 +2350,7 @@ pendingSeekRatio = ratio;
 }
 
 makeWaveformVisible();
-requestWaveformDraw();
+requestWaveformDraw(true);
 updateTimeDisplay();
 }
 
@@ -2291,6 +2457,7 @@ event.stopPropagation();
 frameElement.addEventListener("pointerenter", function () {
 root.classList.add("dsv-pointer-inside");
 prepareMedia();
+requestWaveformDraw(true);
 });
 
 frameElement.addEventListener("pointerleave", function () {
@@ -2441,7 +2608,7 @@ waveformWrap.addEventListener("keydown", handleWaveformKeydown);
 
 waveformWrap.addEventListener("focus", function () {
 makeWaveformVisible();
-requestWaveformDraw();
+requestWaveformDraw(true);
 });
 
 waveformWrap.addEventListener("pointerenter", function (event) {
@@ -2485,6 +2652,8 @@ isPointerDown = false;
 try {
 waveformWrap.releasePointerCapture(event.pointerId);
 } catch (error) {}
+
+requestWaveformDraw(true);
 });
 
 waveformWrap.addEventListener("pointercancel", function (event) {
@@ -2498,12 +2667,12 @@ waveformWrap.releasePointerCapture(event.pointerId);
 
 video.addEventListener("loadedmetadata", function () {
 applyPendingSeek();
-requestWaveformDraw();
+requestWaveformDraw(true);
 updateTimeDisplay();
 });
 
 video.addEventListener("timeupdate", function () {
-requestWaveformDraw();
+requestWaveformDraw(false);
 updateTimeDisplay();
 });
 
@@ -2533,7 +2702,8 @@ stopLoop();
 });
 
 window.addEventListener("resize", function () {
-requestWaveformDraw();
+waveformCache.key = "";
+requestWaveformDraw(true);
 
 if (hoverTime) {
 updateHoverTime(waveformHoverRatio);
@@ -2551,7 +2721,7 @@ document.addEventListener("visibilitychange", function () {
 if (!document.hidden && !video.paused && !video.ended) {
 startLoop();
 } else if (!document.hidden) {
-requestWaveformDraw();
+requestWaveformDraw(true);
 updateTimeDisplay();
 }
 });
