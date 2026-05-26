@@ -46,7 +46,8 @@ data-author-note-opacity="0.96"
 data-author-note-background="rgba(7, 5, 4, 0.72)"
 data-author-note-border-color="rgba(218, 178, 136, 0.24)"
 data-author-note-shadow="0 0 0 1px rgba(0, 0, 0, 0.52), 0 12px 34px rgba(0, 0, 0, 0.42)"
-data-author-note-y-position="-0.66rem"
+data-author-note-y-position="0.86rem"
+data-author-note-y-scale="0.62"
 
 data-time-opacity="0.88"
 data-time-shadow="drop-shadow(0 0 2px rgba(0, 0, 0, 0.95)) drop-shadow(0 0 8px rgba(0, 0, 0, 0.75))"
@@ -150,13 +151,15 @@ data-audio-glow-analyser-smoothing="0.4"
 <div class="dsv-time-display">0:00 / 0:00</div>
 </div>
 
+<div class="dsv-waveform-shell">
 <div class="dsv-waveform-wrap" aria-label="Timeline" role="slider" tabindex="0" aria-valuemin="0" aria-valuemax="100" aria-valuenow="0">
 <canvas class="dsv-waveform"></canvas>
 <div class="dsv-hover-time">0:00</div>
+</div>
+</div>
 
 <div class="dsv-author-note-panel">
 <div class="dsv-author-note-text"></div>
-</div>
 </div>
 
 <div class="dsv-control-row">
@@ -225,6 +228,9 @@ data-audio-glow-analyser-smoothing="0.4"
 --dsv-author-note-border-color: rgba(218, 178, 136, 0.24);
 --dsv-author-note-shadow: 0 0 0 1px rgba(0, 0, 0, 0.52), 0 12px 34px rgba(0, 0, 0, 0.42);
 --dsv-author-note-y-position: 0rem;
+--dsv-author-note-y-scale: 1;
+--dsv-author-note-top: 0px;
+--dsv-author-note-height: var(--dsv-waveform-height);
 
 --dsv-time-opacity: 0.88;
 --dsv-time-shadow: drop-shadow(0 0 0 rgb(0 0 0 / 0));
@@ -603,6 +609,7 @@ opacity: var(--dsv-time-opacity);
 filter: var(--dsv-time-shadow);
 }
 
+.dsv-waveform-shell,
 .dsv-waveform-wrap,
 .dsv-volume,
 .dsv-mini-button {
@@ -612,24 +619,31 @@ pointer-events: none;
 outline: none !important;
 }
 
+.dysphoria-simple-video.dsv-pointer-inside .dsv-waveform-shell,
 .dysphoria-simple-video.dsv-pointer-inside .dsv-waveform-wrap,
 .dysphoria-simple-video.dsv-pointer-inside .dsv-volume,
 .dysphoria-simple-video.dsv-pointer-inside .dsv-mini-button {
 pointer-events: auto;
 }
 
-.dsv-waveform-wrap {
+.dsv-waveform-shell {
 width: calc(100% * var(--dsv-waveform-width-scale));
 margin-left: calc((100% - (100% * var(--dsv-waveform-width-scale))) / 2);
 height: var(--dsv-waveform-height);
 overflow: visible;
-cursor: pointer;
-touch-action: none;
 opacity: 0;
 transform: translateY(calc(var(--dsv-waveform-y-position) + 0.25rem));
 transition:
 opacity 260ms ease,
 transform 260ms ease;
+}
+
+.dsv-waveform-wrap {
+width: 100%;
+height: 100%;
+overflow: visible;
+cursor: pointer;
+touch-action: none;
 }
 
 .dsv-waveform-wrap:focus,
@@ -639,7 +653,7 @@ outline: none !important;
 box-shadow: none !important;
 }
 
-.dysphoria-simple-video.dsv-pointer-inside.dsv-waveform-ready .dsv-waveform-wrap {
+.dysphoria-simple-video.dsv-pointer-inside.dsv-waveform-ready .dsv-waveform-shell {
 opacity: var(--dsv-waveform-opacity);
 transform: translateY(var(--dsv-waveform-y-position));
 }
@@ -683,8 +697,11 @@ transform: translateX(-50%) translateY(0);
 
 .dsv-author-note-panel {
 position: absolute;
-inset: 0;
+left: calc((100% - (100% * var(--dsv-waveform-width-scale))) / 2);
+top: var(--dsv-author-note-top);
 z-index: 4;
+width: calc(100% * var(--dsv-waveform-width-scale));
+height: var(--dsv-author-note-height);
 overflow: auto;
 padding: 0.58rem 0.68rem;
 border: 1px solid var(--dsv-author-note-border-color);
@@ -716,6 +733,9 @@ pointer-events: auto;
 .dsv-author-note-text {
 white-space: pre-wrap;
 margin: auto;
+max-width: 100%;
+max-height: 100%;
+overflow: auto;
 }
 
 .dsv-control-row {
@@ -732,6 +752,7 @@ transition:
 opacity 260ms ease,
 transform 260ms ease;
 pointer-events: none;
+cursor: pointer;
 }
 
 .dsv-control-row::before {
@@ -956,6 +977,8 @@ root.dataset.dsvReady = "true";
 
 var frameElement = root.querySelector(".dsv-frame");
 var bottomElement = root.querySelector(".dsv-bottom");
+var infoRowElement = root.querySelector(".dsv-info-row");
+var controlRowElement = root.querySelector(".dsv-control-row");
 var video = root.querySelector(".dsv-video");
 var thumbnail = root.querySelector(".dsv-thumbnail");
 var toggle = root.querySelector(".dsv-toggle");
@@ -2090,6 +2113,21 @@ if (!infoButton) return;
 infoButton.setAttribute("aria-pressed", root.classList.contains("dsv-note-visible") ? "true" : "false");
 }
 
+function updateAuthorNoteGeometry() {
+if (!bottomElement || !infoRowElement || !controlRowElement || !authorNotePanel) return;
+
+var bottomHeight = bottomElement.offsetHeight;
+var top = infoRowElement.offsetTop + infoRowElement.offsetHeight;
+var controlTop = controlRowElement.offsetTop;
+var availableHeight = Math.max(1, controlTop - top);
+var yScale = clamp(dataNumber("authorNoteYScale", 1), 0.05, 4);
+var scaledHeight = Math.max(1, availableHeight * yScale);
+var scaledTop = top + ((availableHeight - scaledHeight) * 0.5);
+
+root.style.setProperty("--dsv-author-note-top", scaledTop.toFixed(2) + "px");
+root.style.setProperty("--dsv-author-note-height", scaledHeight.toFixed(2) + "px");
+}
+
 function setupBaseState() {
 var startVolume = clamp(dataNumber("startVolume", 0.8), 0, 1);
 var thumbnailSrc = dataText("thumbnailSrc", "");
@@ -2116,6 +2154,7 @@ var authorNoteBackground = dataText("authorNoteBackground", "rgba(7, 5, 4, 0.72)
 var authorNoteBorderColor = dataText("authorNoteBorderColor", "rgba(218, 178, 136, 0.24)");
 var authorNoteShadow = dataText("authorNoteShadow", "0 0 0 1px rgba(0, 0, 0, 0.52), 0 12px 34px rgba(0, 0, 0, 0.42)");
 var authorNoteYPosition = dataCssLength("authorNoteYPosition", "0rem");
+var authorNoteYScale = clamp(dataNumber("authorNoteYScale", 1), 0.05, 4);
 
 var timeOpacity = clamp(dataNumber("timeOpacity", 0.88), 0, 1);
 var timeShadow = dataText("timeShadow", "drop-shadow(0 0 0 rgb(0 0 0 / 0))");
@@ -2198,6 +2237,7 @@ root.style.setProperty("--dsv-author-note-background", authorNoteBackground);
 root.style.setProperty("--dsv-author-note-border-color", authorNoteBorderColor);
 root.style.setProperty("--dsv-author-note-shadow", authorNoteShadow);
 root.style.setProperty("--dsv-author-note-y-position", authorNoteYPosition);
+root.style.setProperty("--dsv-author-note-y-scale", authorNoteYScale);
 
 root.style.setProperty("--dsv-time-opacity", timeOpacity);
 root.style.setProperty("--dsv-time-shadow", timeShadow);
@@ -2281,6 +2321,7 @@ updateAudioGlowState();
 updateMuteState();
 updateInfoState();
 updateFullscreenState();
+updateAuthorNoteGeometry();
 setAudioGlow(0);
 }
 
@@ -2560,6 +2601,7 @@ togglePlayback();
 
 frameElement.addEventListener("pointerenter", function () {
 root.classList.add("dsv-pointer-inside");
+updateAuthorNoteGeometry();
 prepareMedia();
 requestWaveformDraw(true);
 });
@@ -2675,6 +2717,7 @@ event.stopPropagation();
 if (!hasAuthorNote) return;
 
 root.classList.toggle("dsv-note-visible");
+updateAuthorNoteGeometry();
 updateInfoState();
 });
 }
@@ -2811,6 +2854,7 @@ stopLoop();
 
 window.addEventListener("resize", function () {
 waveformCache.key = "";
+updateAuthorNoteGeometry();
 requestWaveformDraw(true);
 
 if (hoverTime) {
@@ -2820,10 +2864,16 @@ updateHoverTime(waveformHoverRatio);
 updateFullscreenState();
 });
 
-document.addEventListener("fullscreenchange", updateFullscreenState);
-document.addEventListener("webkitfullscreenchange", updateFullscreenState);
-document.addEventListener("mozfullscreenchange", updateFullscreenState);
-document.addEventListener("MSFullscreenChange", updateFullscreenState);
+function handleFullscreenGeometryChange() {
+updateFullscreenState();
+setTimeout(updateAuthorNoteGeometry, 0);
+setTimeout(updateAuthorNoteGeometry, 120);
+}
+
+document.addEventListener("fullscreenchange", handleFullscreenGeometryChange);
+document.addEventListener("webkitfullscreenchange", handleFullscreenGeometryChange);
+document.addEventListener("mozfullscreenchange", handleFullscreenGeometryChange);
+document.addEventListener("MSFullscreenChange", handleFullscreenGeometryChange);
 
 document.addEventListener("visibilitychange", function () {
 if (!document.hidden && !video.paused && !video.ended) {
