@@ -6,7 +6,7 @@
   data-track-artist="By Ms. Dysphoria"
   data-author-note="My pretty player"
   data-waveform-src="https://msdysphoria.github.io/Personal-Storage/Video/Ms. Dysphoria - Fall of Horned God - Backstage.json"
-  data-waveform-json-values-mode="height"
+  data-waveform-json-values-mode="auto"
   data-waveform-json-resample="true"
   data-waveform-json-cache="force-cache"
   data-waveform-analysis-start-delay="120"
@@ -22,13 +22,13 @@
   data-pointer-cursor="url('https://msdysphoria.github.io/Personal-Storage/Texture/Pointer.png') 4 4, pointer"
   data-outer-glow-color="159 71 17"
   data-outer-glow-opacity="0.1"
-  data-outer-glow-size="34px"
+  data-outer-glow-size="16px"
   data-outer-glow-spread="1px"
-  data-outer-glow-audio-size="1px"
-  data-outer-glow-audio-spread="6px"
-  data-outer-glow-audio-opacity="0.6"
+  data-outer-glow-audio-size="2px"
+  data-outer-glow-audio-spread="2px"
+  data-outer-glow-audio-opacity="0.4"
   data-outer-glow-play-transition="1000ms ease"
-  data-outer-glow-audio-transition="80ms ease"
+  data-outer-glow-audio-transition="0ms"
   data-bottom-vignette-opacity="0.88"
   data-bottom-vignette-size="78%"
   data-bottom-vignette-color="0 0 0"
@@ -94,6 +94,11 @@
   data-spatial-depth="0.55"
   data-spatial-speed="0.12"
   data-audio-glow="true"
+  data-audio-glow-source="auto"
+  data-audio-glow-envelope-gain="1"
+  data-audio-glow-envelope-threshold="0"
+  data-audio-glow-envelope-power="1"
+  data-audio-glow-envelope-volume-scale="true"
   data-audio-glow-color="255 170 82"
   data-audio-glow-height="0rem"
   data-audio-glow-strength="1"
@@ -1243,6 +1248,10 @@
       var audioGraphReady = false;
       var audioGraphFailed = false;
       var audioGlowValue = 0;
+      var glowEnvelopeValues = [];
+      var glowEnvelopeInterval = 0.1;
+      var glowEnvelopeReady = false;
+      var glowEnvelopeMode = "normalized";
       var lastTimeDisplayText = "";
 
       function dataNumber(name, fallback) {
@@ -1487,15 +1496,35 @@
         }
 
         if (typeof input === "object") {
+          if (input.waveform) {
+            if (Array.isArray(input.waveform)) {
+              payload.values = input.waveform;
+              payload.mode = String(
+                input.valuesMode || input.mode || "",
+              ).trim();
+              return payload;
+            }
+
+            if (
+              typeof input.waveform === "object" &&
+              Array.isArray(input.waveform.values)
+            ) {
+              payload.values = input.waveform.values;
+              payload.mode = String(
+                input.waveform.valuesMode ||
+                  input.waveform.mode ||
+                  input.valuesMode ||
+                  input.mode ||
+                  "",
+              ).trim();
+              return payload;
+            }
+          }
+
           payload.mode = String(input.valuesMode || input.mode || "").trim();
 
           if (Array.isArray(input.values)) {
             payload.values = input.values;
-            return payload;
-          }
-
-          if (Array.isArray(input.waveform)) {
-            payload.values = input.waveform;
             return payload;
           }
 
@@ -1561,8 +1590,12 @@
           );
         }
 
-        var modeOverride = dataText("waveformJsonValuesMode", "").trim();
-        var mode = (modeOverride || payload.mode || "height").toLowerCase();
+        var modeOverride = dataText("waveformJsonValuesMode", "").trim().toLowerCase();
+        var mode = (
+          modeOverride && modeOverride !== "auto"
+            ? modeOverride
+            : payload.mode || "height"
+        ).toLowerCase();
 
         var minHeight = clamp(
           dataNumber("waveformMinBarHeight", 0.08),
@@ -1592,6 +1625,180 @@
 
         markWaveformChanged();
         requestWaveformDraw(true);
+
+        return true;
+      }
+
+      function extractGlowPayload(input) {
+        var payload = {
+          values: null,
+          interval: 0,
+          mode: "",
+        };
+
+        if (!input) return payload;
+
+        if (typeof input === "string") {
+          try {
+            return extractGlowPayload(JSON.parse(input));
+          } catch (error) {
+            return payload;
+          }
+        }
+
+        if (typeof input !== "object") return payload;
+
+        if (input.glow) {
+          if (Array.isArray(input.glow)) {
+            payload.values = input.glow;
+            payload.interval = parseFloat(input.glowInterval || input.interval);
+            payload.mode = String(input.valuesMode || input.mode || "").trim();
+            return payload;
+          }
+
+          if (typeof input.glow === "object" && Array.isArray(input.glow.values)) {
+            payload.values = input.glow.values;
+            payload.interval = parseFloat(
+              input.glow.interval ||
+                input.glow.step ||
+                input.glow.sampleInterval ||
+                input.glowInterval ||
+                input.interval,
+            );
+            payload.mode = String(
+              input.glow.valuesMode ||
+                input.glow.mode ||
+                input.valuesMode ||
+                input.mode ||
+                "",
+            ).trim();
+            return payload;
+          }
+        }
+
+        if (Array.isArray(input.glowValues)) {
+          payload.values = input.glowValues;
+          payload.interval = parseFloat(input.glowInterval || input.interval);
+          payload.mode = String(input.glowValuesMode || input.valuesMode || "").trim();
+          return payload;
+        }
+
+        return payload;
+      }
+
+      function applyPrecomputedGlowValues(input) {
+        var payload = extractGlowPayload(input);
+
+        if (!payload.values || !payload.values.length) return false;
+
+        var numericValues = payload.values
+          .map(function (value) {
+            return parseFloat(value);
+          })
+          .filter(function (value) {
+            return Number.isFinite(value);
+          });
+
+        if (!numericValues.length) return false;
+
+        var interval = Number.isFinite(payload.interval) && payload.interval > 0
+          ? payload.interval
+          : 0.1;
+        var modeOverride = dataText("audioGlowJsonValuesMode", "").trim().toLowerCase();
+        var mode = (
+          modeOverride && modeOverride !== "auto"
+            ? modeOverride
+            : payload.mode || "normalized"
+        ).toLowerCase();
+
+        glowEnvelopeValues = numericValues.map(function (value) {
+          if (mode === "height") {
+            return clamp(value, 0, 1);
+          }
+
+          return clamp(value, 0, 1);
+        });
+
+        glowEnvelopeInterval = interval;
+        glowEnvelopeMode = mode;
+        glowEnvelopeReady = true;
+
+        updateAudioFeatures();
+
+        return true;
+      }
+
+      function hasPrecomputedGlow() {
+        return (
+          glowEnvelopeReady &&
+          glowEnvelopeValues.length > 0 &&
+          Number.isFinite(glowEnvelopeInterval) &&
+          glowEnvelopeInterval > 0
+        );
+      }
+
+      function samplePrecomputedGlow() {
+        if (!hasPrecomputedGlow()) return 0;
+        if (!videoLoaded || !Number.isFinite(video.currentTime)) return 0;
+
+        var position = Math.max(0, video.currentTime) / glowEnvelopeInterval;
+        var left = Math.floor(position);
+        var right = Math.min(glowEnvelopeValues.length - 1, left + 1);
+        var t = position - left;
+
+        left = clamp(left, 0, glowEnvelopeValues.length - 1);
+
+        var leftValue = glowEnvelopeValues[left] || 0;
+        var rightValue = glowEnvelopeValues[right] || leftValue;
+
+        return clamp(leftValue + (rightValue - leftValue) * t, 0, 1);
+      }
+
+      function getVolumeGlowFactor() {
+        if (!dataBool("audioGlowEnvelopeVolumeScale", true)) return 1;
+        if (video.muted) return 0;
+
+        return clamp(parseFloat(volume.value) || 0, 0, 1);
+      }
+
+      function mapPrecomputedGlowTarget(value) {
+        var threshold = clamp(dataNumber("audioGlowEnvelopeThreshold", 0), 0, 1);
+        var gain = Math.max(0, dataNumber("audioGlowEnvelopeGain", 1));
+        var power = Math.max(0.05, dataNumber("audioGlowEnvelopePower", 1));
+        var normalized = clamp((value - threshold) * gain, 0, 1);
+
+        normalized = Math.pow(normalized, power);
+
+        return clamp(normalized * getVolumeGlowFactor(), 0, 1);
+      }
+
+      function applyAudioGlowTarget(target) {
+        var attack = clamp(dataNumber("audioGlowAttack", 0.22), 0, 1);
+        var release = clamp(dataNumber("audioGlowRelease", 0.08), 0, 1);
+        var blend = target > audioGlowValue ? attack : release;
+
+        audioGlowValue = audioGlowValue + (target - audioGlowValue) * blend;
+
+        setAudioGlow(audioGlowValue);
+      }
+
+      function shouldUsePrecomputedGlow() {
+        var source = dataText("audioGlowSource", "auto").trim().toLowerCase();
+
+        if (source === "analyser" || source === "analyzer") return false;
+        if (source === "waveform" || source === "json" || source === "precomputed") {
+          return hasPrecomputedGlow();
+        }
+
+        return hasPrecomputedGlow();
+      }
+
+      function shouldUseAnalyserGlowFallback() {
+        var source = dataText("audioGlowSource", "auto").trim().toLowerCase();
+
+        if (source === "waveform" || source === "json" || source === "precomputed") {
+          return false;
+        }
 
         return true;
       }
@@ -1629,6 +1836,8 @@
 
         fetchWaveformJson(url)
           .then(function (json) {
+            applyPrecomputedGlowValues(json);
+
             if (!applyPrecomputedWaveformValues(json)) {
               throw new Error("Invalid waveform JSON.");
             }
@@ -2340,23 +2549,32 @@
       }
 
       function updateAudioFeatures() {
-        if (!audioGraphReady) {
-          setAudioGlow(0);
+        if (audioGraphReady) {
+          resumeAudioContext();
+          updateSpatialAutomation();
+        }
+
+        if (!audioGlowEnabled || video.paused || video.ended) {
+          audioGlowValue *= clamp(dataNumber("audioGlowIdleDecay", 0.86), 0, 1);
+          setAudioGlow(audioGlowValue);
           return;
         }
 
-        resumeAudioContext();
-        updateSpatialAutomation();
+        if (shouldUsePrecomputedGlow()) {
+          applyAudioGlowTarget(
+            mapPrecomputedGlowTarget(samplePrecomputedGlow()),
+          );
+          return;
+        }
 
-        if (
-          !audioGlowEnabled ||
-          !analyser ||
-          !analyserData ||
-          video.paused ||
-          video.ended
-        ) {
+        if (!shouldUseAnalyserGlowFallback()) {
           audioGlowValue *= clamp(dataNumber("audioGlowIdleDecay", 0.86), 0, 1);
           setAudioGlow(audioGlowValue);
+          return;
+        }
+
+        if (!audioGraphReady || !analyser || !analyserData) {
+          setAudioGlow(0);
           return;
         }
 
@@ -2375,13 +2593,7 @@
         var gain = Math.max(0, dataNumber("audioGlowRmsGain", 4.8));
         var target = clamp((rms - threshold) * gain, 0, 1);
 
-        var attack = clamp(dataNumber("audioGlowAttack", 0.22), 0, 1);
-        var release = clamp(dataNumber("audioGlowRelease", 0.08), 0, 1);
-        var blend = target > audioGlowValue ? attack : release;
-
-        audioGlowValue = audioGlowValue + (target - audioGlowValue) * blend;
-
-        setAudioGlow(audioGlowValue);
+        applyAudioGlowTarget(target);
       }
 
       function startAudioFeatureTimer() {
@@ -2393,7 +2605,7 @@
         );
 
         audioFeatureTimer = window.setInterval(function () {
-          if (!audioGraphReady || video.paused || video.ended) return;
+          if (video.paused || video.ended) return;
           updateAudioFeatures();
         }, updateMs);
       }
