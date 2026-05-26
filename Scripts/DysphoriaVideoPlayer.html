@@ -4,8 +4,8 @@ data-video-src="https://msdysphoria.github.io/Personal-Storage/Video/Ms. Dysphor
 data-thumbnail-src="https://msdysphoria.github.io/Personal-Storage/Video/Ms. Dysphoria - Fall of Horned God - Backstage.webp"
 
 data-track-title="Dysphoria Video Player"
-data-track-artist=""
-data-author-note=""
+data-track-artist="By Ms. Dysphoria"
+data-author-note="My pretty player"
 data-waveform-src="https://msdysphoria.github.io/Personal-Storage/Video/Ms. Dysphoria - Fall of Horned God - Backstage.json"
 data-waveform-json-values-mode="height"
 data-waveform-json-resample="true"
@@ -23,6 +23,16 @@ data-aspect-ratio="16 / 9"
 data-object-fit="cover"
 
 data-border-glow="2.2"
+data-fullscreen-object-fit="contain"
+
+data-outer-glow-color="159 71 17"
+data-outer-glow-opacity="0.34"
+data-outer-glow-size="34px"
+data-outer-glow-spread="0px"
+data-outer-glow-audio-size="18px"
+data-outer-glow-audio-spread="0px"
+data-outer-glow-audio-opacity="0.45"
+data-outer-glow-transition="320ms ease"
 
 data-bottom-vignette-opacity="0.88"
 data-bottom-vignette-size="78%"
@@ -143,10 +153,10 @@ data-audio-glow-analyser-smoothing="0.4"
 <div class="dsv-waveform-wrap" aria-label="Timeline" role="slider" tabindex="0" aria-valuemin="0" aria-valuemax="100" aria-valuenow="0">
 <canvas class="dsv-waveform"></canvas>
 <div class="dsv-hover-time">0:00</div>
-</div>
 
 <div class="dsv-author-note-panel">
 <div class="dsv-author-note-text"></div>
+</div>
 </div>
 
 <div class="dsv-control-row">
@@ -190,6 +200,17 @@ data-audio-glow-analyser-smoothing="0.4"
 --dsv-aspect-ratio: 16 / 9;
 --dsv-object-fit: cover;
 --dsv-border-glow: 0.2;
+--dsv-fullscreen-object-fit: contain;
+
+--dsv-outer-glow-play-opacity: 0;
+--dsv-outer-glow-color: 159 71 17;
+--dsv-outer-glow-opacity: 0.34;
+--dsv-outer-glow-opacity-current: 0.34;
+--dsv-outer-glow-size: 34px;
+--dsv-outer-glow-spread: 0px;
+--dsv-outer-glow-audio-size-current: 0px;
+--dsv-outer-glow-audio-spread-current: 0px;
+--dsv-outer-glow-transition: 320ms ease;
 
 --dsv-bottom-vignette-opacity: 0.88;
 --dsv-bottom-vignette-size: 78%;
@@ -278,6 +299,10 @@ align-items: center;
 justify-content: center;
 }
 
+.dysphoria-simple-video.dsv-playing {
+--dsv-outer-glow-play-opacity: 1;
+}
+
 .dysphoria-simple-video *,
 .dysphoria-simple-video *::before,
 .dysphoria-simple-video *::after {
@@ -303,9 +328,12 @@ border: 1px solid rgb(120 88 49 / 58%);
 background: rgb(0 0 0);
 box-shadow:
 0 0 0 1px rgb(0 0 0 / 72%),
-0 0 calc(7px + (22px * var(--dsv-border-glow))) rgb(159 71 17 / calc(0.09 + (var(--dsv-border-glow) * 0.25)));
+0 0 calc(var(--dsv-outer-glow-size) + var(--dsv-outer-glow-audio-size-current)) calc(var(--dsv-outer-glow-spread) + var(--dsv-outer-glow-audio-spread-current)) rgb(var(--dsv-outer-glow-color) / calc(var(--dsv-outer-glow-opacity-current) * var(--dsv-outer-glow-play-opacity)));
 cursor: pointer;
 outline: none !important;
+transition:
+box-shadow var(--dsv-outer-glow-transition),
+border-color var(--dsv-outer-glow-transition);
 }
 
 .dysphoria-simple-video:fullscreen .dsv-frame,
@@ -313,6 +341,16 @@ outline: none !important;
 width: 100%;
 height: 100%;
 aspect-ratio: auto;
+}
+
+.dysphoria-simple-video:fullscreen .dsv-video,
+.dysphoria-simple-video:-webkit-full-screen .dsv-video {
+object-fit: var(--dsv-fullscreen-object-fit);
+}
+
+.dysphoria-simple-video:fullscreen .dsv-thumbnail,
+.dysphoria-simple-video:-webkit-full-screen .dsv-thumbnail {
+background-size: contain;
 }
 
 .dsv-frame::after {
@@ -496,6 +534,7 @@ pointer-events: none;
 
 .dysphoria-simple-video.dsv-pointer-inside .dsv-bottom {
 transform: translateY(0);
+pointer-events: auto;
 }
 
 .dysphoria-simple-video.dsv-pointer-inside .dsv-bottom::before {
@@ -644,11 +683,8 @@ transform: translateX(-50%) translateY(0);
 
 .dsv-author-note-panel {
 position: absolute;
-left: 0.72rem;
-right: 0.72rem;
-bottom: 2.7rem;
+inset: 0;
 z-index: 4;
-max-height: 7rem;
 overflow: auto;
 padding: 0.58rem 0.68rem;
 border: 1px solid var(--dsv-author-note-border-color);
@@ -658,12 +694,17 @@ color: rgb(235 220 206 / 84%);
 font-size: 0.66rem;
 line-height: 1.42;
 letter-spacing: 0.015em;
+text-align: center;
+display: flex;
+align-items: center;
+justify-content: center;
 opacity: 0;
-transform: translateY(calc(var(--dsv-author-note-y-position) + 0.36rem));
+transform: translateY(calc(var(--dsv-author-note-y-position) + 0.22rem));
 transition:
 opacity 180ms ease,
 transform 180ms ease;
 pointer-events: none;
+cursor: default;
 }
 
 .dysphoria-simple-video.dsv-pointer-inside.dsv-note-visible .dsv-author-note-panel {
@@ -674,6 +715,7 @@ pointer-events: auto;
 
 .dsv-author-note-text {
 white-space: pre-wrap;
+margin: auto;
 }
 
 .dsv-control-row {
@@ -708,6 +750,8 @@ pointer-events: none;
 .dysphoria-simple-video.dsv-pointer-inside .dsv-control-row {
 opacity: 1;
 transform: translateY(0);
+pointer-events: auto;
+cursor: pointer;
 }
 
 .dsv-mini-button {
@@ -850,6 +894,7 @@ border: 0;
 }
 
 .dsv-volume::-webkit-slider-runnable-track {
+cursor: pointer;
 height: 0.4rem;
 border: 1px solid rgb(120 88 49 / 42%);
 background:
@@ -863,6 +908,7 @@ rgb(12 10 9 / 68%) 100%
 }
 
 .dsv-volume::-webkit-slider-thumb {
+cursor: pointer;
 -webkit-appearance: none;
 appearance: none;
 width: 0.76rem;
@@ -877,6 +923,7 @@ box-shadow:
 }
 
 .dsv-volume::-moz-range-track {
+cursor: pointer;
 height: 0.4rem;
 border: 1px solid rgb(120 88 49 / 42%);
 background: rgb(12 10 9 / 68%);
@@ -888,6 +935,7 @@ background: rgb(159 71 17 / 78%);
 }
 
 .dsv-volume::-moz-range-thumb {
+cursor: pointer;
 width: 0.76rem;
 height: 0.76rem;
 border-radius: 999px;
@@ -907,6 +955,7 @@ if (root.dataset.dsvReady === "true") return;
 root.dataset.dsvReady = "true";
 
 var frameElement = root.querySelector(".dsv-frame");
+var bottomElement = root.querySelector(".dsv-bottom");
 var video = root.querySelector(".dsv-video");
 var thumbnail = root.querySelector(".dsv-thumbnail");
 var toggle = root.querySelector(".dsv-toggle");
@@ -1784,6 +1833,19 @@ var opacity = clamp(value * opacityMultiplier * strength, 0, opacityMax);
 
 root.style.setProperty("--dsv-audio-glow-size", size.toFixed(2) + "px");
 root.style.setProperty("--dsv-audio-glow-opacity", opacity.toFixed(3));
+setOuterGlow(value);
+}
+
+function setOuterGlow(value) {
+var baseOpacity = clamp(dataNumber("outerGlowOpacity", 0.34), 0, 1);
+var audioSize = Math.max(0, dataNumber("outerGlowAudioSize", 18));
+var audioSpread = Math.max(0, dataNumber("outerGlowAudioSpread", 0));
+var audioOpacity = Math.max(0, dataNumber("outerGlowAudioOpacity", 0.45));
+var currentOpacity = clamp(baseOpacity + (value * audioOpacity), 0, 1);
+
+root.style.setProperty("--dsv-outer-glow-audio-size-current", (value * audioSize).toFixed(2) + "px");
+root.style.setProperty("--dsv-outer-glow-audio-spread-current", (value * audioSpread).toFixed(2) + "px");
+root.style.setProperty("--dsv-outer-glow-opacity-current", currentOpacity.toFixed(3));
 }
 
 function setupAudioGraph() {
@@ -2033,7 +2095,13 @@ var startVolume = clamp(dataNumber("startVolume", 0.8), 0, 1);
 var thumbnailSrc = dataText("thumbnailSrc", "");
 var aspectRatio = dataText("aspectRatio", "16 / 9");
 var objectFit = dataText("objectFit", "cover");
+var fullscreenObjectFit = dataText("fullscreenObjectFit", "contain");
 var borderGlow = clamp(dataNumber("borderGlow", 0.2), 0, 8);
+var outerGlowColor = dataText("outerGlowColor", "159 71 17");
+var outerGlowOpacity = clamp(dataNumber("outerGlowOpacity", 0.34), 0, 1);
+var outerGlowSize = dataCssLength("outerGlowSize", "34px");
+var outerGlowSpread = dataCssLength("outerGlowSpread", "0px");
+var outerGlowTransition = dataText("outerGlowTransition", "320ms ease");
 
 var bottomVignetteOpacity = clamp(dataNumber("bottomVignetteOpacity", 0.88), 0, 1);
 var bottomVignetteSize = dataText("bottomVignetteSize", "78%");
@@ -2109,7 +2177,13 @@ thumbnail.draggable = false;
 
 root.style.setProperty("--dsv-aspect-ratio", aspectRatio);
 root.style.setProperty("--dsv-object-fit", objectFit);
+root.style.setProperty("--dsv-fullscreen-object-fit", fullscreenObjectFit);
 root.style.setProperty("--dsv-border-glow", borderGlow);
+root.style.setProperty("--dsv-outer-glow-color", outerGlowColor);
+root.style.setProperty("--dsv-outer-glow-opacity", outerGlowOpacity);
+root.style.setProperty("--dsv-outer-glow-size", outerGlowSize);
+root.style.setProperty("--dsv-outer-glow-spread", outerGlowSpread);
+root.style.setProperty("--dsv-outer-glow-transition", outerGlowTransition);
 
 root.style.setProperty("--dsv-bottom-vignette-opacity", bottomVignetteOpacity);
 root.style.setProperty("--dsv-bottom-vignette-size", bottomVignetteSize);
@@ -2186,7 +2260,7 @@ infoButton.classList.toggle("dsv-hidden", !hasAuthorNote);
 }
 
 if (authorNotePanel) {
-authorNotePanel.style.display = hasAuthorNote ? "block" : "none";
+authorNotePanel.style.display = hasAuthorNote ? "flex" : "none";
 }
 
 volume.value = String(startVolume);
@@ -2454,6 +2528,36 @@ event.preventDefault();
 event.stopPropagation();
 });
 
+if (bottomElement) {
+bottomElement.addEventListener("mousedown", function (event) {
+event.stopPropagation();
+});
+
+bottomElement.addEventListener("click", function (event) {
+event.stopPropagation();
+
+if (closestTarget(event, ".dsv-author-note-panel")) {
+event.preventDefault();
+return;
+}
+
+if (closestTarget(event, ".dsv-waveform-wrap")) {
+return;
+}
+
+if (
+closestTarget(event, ".dsv-volume") ||
+closestTarget(event, ".dsv-mini-button")
+) {
+return;
+}
+
+if (closestTarget(event, ".dsv-control-row")) {
+togglePlayback();
+}
+});
+}
+
 frameElement.addEventListener("pointerenter", function () {
 root.classList.add("dsv-pointer-inside");
 prepareMedia();
@@ -2587,6 +2691,10 @@ event.stopPropagation();
 toggleFullscreen();
 });
 }
+
+volume.addEventListener("click", function (event) {
+event.stopPropagation();
+});
 
 volume.addEventListener("input", function () {
 var value = clamp(parseFloat(volume.value) || 0, 0, 1);
