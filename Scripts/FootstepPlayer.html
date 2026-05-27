@@ -42,10 +42,11 @@ data-wet-image-size="auto 30%"
 data-wet-image-repeat="repeat-x"
 data-wet-image-position-y="bottom"
 data-wet-image-offset-y="-10"
+data-wet-image-scale-x="1"
 data-wet-image-scale-y="2"
 data-wet-image-transform-origin="center bottom"
-data-wet-image-max-opacity="0.6"
-data-wet-image-blend-mode="soft-light"
+data-wet-image-max-opacity="0.7"
+data-wet-image-blend-mode="overlay"
 data-wet-image-scroll-at-min-speed="-64"
 data-wet-image-scroll-at-mid-speed="-92"
 data-wet-image-scroll-at-max-speed="-128"
@@ -55,14 +56,13 @@ data-animation-frame-base="1"
 data-animation-trigger-frames="21,49"
 data-footstep-min-interval-ms="65"
 data-footstep-collapse-skipped-triggers="true"
-data-audio-activation-grace-ms="0"
-data-audio-activation-skip-triggers="0"
+data-audio-preload="auto"
+data-audio-pool-size="1"
+data-audio-load-when-visible="true"
 
 data-left-foot-pan="-0.12"
 data-right-foot-pan="0.12"
 data-footstep-pan-random="0.03"
-data-splash-pan-random="0.08"
-data-creak-pan-random="0.05"
 data-audio-panning-enabled="true"
 
 data-default-ambience="small-room"
@@ -161,9 +161,9 @@ data-footstep-volume-at-min-speed="0.5"
 data-footstep-volume-at-mid-speed="0.75"
 data-footstep-volume-at-max-speed="1"
 
-data-wet-volume-at-min-speed="0.5"
-data-wet-volume-at-mid-speed="0.675"
-data-wet-volume-at-max-speed="0.8"
+data-wet-volume-at-min-speed="0.6"
+data-wet-volume-at-mid-speed="0.7"
+data-wet-volume-at-max-speed="0.95"
 
 data-creak-volume-at-min-speed="0"
 data-creak-volume-at-mid-speed="0.55"
@@ -292,13 +292,13 @@ data-splash-particle-scale-at-full-wetness="1"
 <input class="dfp-slider dfp-wetness" type="range" min="0" max="1" step="0.01" value="0">
 </div>
 <div class="dfp-randomizer-buttons">
-    <button class="dfp-randomizer-button dfp-randomize-speed" type="button" data-randomizer="speed" aria-pressed="false">
+<button class="dfp-randomizer-button dfp-randomize-speed" type="button" data-randomizer="speed" aria-pressed="false">
 <img class="dfp-randomizer-icon" alt="" aria-hidden="true">
 <span>Randomize Speed</span>
+</button>
 <button class="dfp-randomizer-button dfp-randomize-wetness" type="button" data-randomizer="wetness" aria-pressed="false">
 <img class="dfp-randomizer-icon" alt="" aria-hidden="true">
 <span>Randomize Wetness</span>
-</button>
 </button>
 </div>
 </div>
@@ -309,7 +309,7 @@ data-splash-particle-scale-at-full-wetness="1"
 <div class="dfp-black-underlay"></div>
 <div class="dfp-floor-image-layer dfp-floor-image-layer-a"></div>
 <div class="dfp-floor-image-layer dfp-floor-image-layer-b"></div>
-<div class="dfp-wet-image-layer"></div>
+<div class="dfp-wet-image-layer"><div class="dfp-wet-image-texture"></div></div>
 <video class="dfp-animation-video" muted loop playsinline preload="auto"></video>
 <canvas class="dfp-animation-canvas"></canvas>
 <div class="dfp-particle-layer"></div>
@@ -717,9 +717,21 @@ background-position: 0 center;
 .dfp-wet-image-layer {
 z-index: 2;
 opacity: 0;
+overflow: hidden;
+mix-blend-mode: soft-light;
+}
+
+.dfp-wet-image-texture {
+position: absolute;
+inset: 0;
+width: 100%;
+height: 100%;
+display: block;
+pointer-events: none;
 background-repeat: repeat-x;
 background-size: auto 100%;
 background-position: 0 center;
+transform-origin: center bottom;
 }
 
 .dfp-animation-video {
@@ -940,6 +952,7 @@ var animationCanvas = root.querySelector(".dfp-animation-canvas");
 var animationCanvasContext = animationCanvas ? animationCanvas.getContext("2d") : null;
 var floorLayers = Array.prototype.slice.call(root.querySelectorAll(".dfp-floor-image-layer"));
 var wetLayer = root.querySelector(".dfp-wet-image-layer");
+var wetTextureLayer = root.querySelector(".dfp-wet-image-texture");
 var particleLayer = root.querySelector(".dfp-particle-layer");
 var blackUnderlay = root.querySelector(".dfp-black-underlay");
 
@@ -956,14 +969,13 @@ speed: { active: false, slider: speedSlider, button: root.querySelector(".dfp-ra
 var currentSurface = root.dataset.defaultSurface || "wood";
 var pools = {};
 var recentPlayed = {};
+var audioPoolsPrepared = false;
+var audioPoolsLoading = false;
 
 var frameMonitor = null;
 var lastFrame = null;
 var firedThisLoop = {};
-var isAudioArmed = false;
 var lastFootstepPlayAt = 0;
-var audioActivationSuppressUntil = 0;
-var audioActivationSkipTriggersRemaining = 0;
 var lastVolumeSliderValue = parseFloat(root.dataset.defaultVolume) || 0;
 var creakPseudoMisses = 0;
 var creakPseudoCooldownSteps = 0;
@@ -1079,9 +1091,13 @@ var state = randomizerStates[kind];
 if (!state || !state.slider) return;
 
 state.slider.value = String(snapSliderValue(state.slider, value));
-updateUI();
+
+if (kind === "wetness") {
+updateWetnessUI();
+}
 
 if (kind === "speed") {
+updateSpeedUI();
 updateAnimationSpeed();
 }
 }
@@ -2017,12 +2033,12 @@ floorTransitionTimer = null;
 }
 
 function updateWetLayer() {
-if (!wetLayer) return;
+if (!wetLayer || !wetTextureLayer) return;
 
 var src = root.dataset.wetImageSrc || "";
 
 if (!usableSource(src)) {
-wetLayer.style.backgroundImage = "none";
+wetTextureLayer.style.backgroundImage = "none";
 wetLayer.style.opacity = "0";
 return;
 }
@@ -2030,17 +2046,18 @@ return;
 var wetness = parseFloat(wetnessSlider.value) || 0;
 var maxOpacity = clamp(dataNumber("wetImageMaxOpacity", 1), 0, 1);
 var offsetY = dataText("wetImageOffsetY", "0");
+var scaleX = dataNumber("wetImageScaleX", 1);
 var scaleY = dataNumber("wetImageScaleY", 1);
 
-wetLayer.style.backgroundImage = imageUrl(src);
-wetLayer.style.backgroundRepeat = dataText("wetImageRepeat", "repeat-x");
-wetLayer.style.backgroundSize = dataText("wetImageSize", "auto 100%");
-wetLayer.style.mixBlendMode = dataText("wetImageBlendMode", "soft-light");
 wetLayer.style.opacity = String(clamp(wetness, 0, 1) * maxOpacity);
-wetLayer.style.transform = "translateY(" + offsetY + ") scaleY(" + scaleY + ")";
-wetLayer.style.transformOrigin = dataText("wetImageTransformOrigin", "center bottom");
-}
+wetLayer.style.mixBlendMode = dataText("wetImageBlendMode", "soft-light");
 
+wetTextureLayer.style.backgroundImage = imageUrl(src);
+wetTextureLayer.style.backgroundRepeat = dataText("wetImageRepeat", "repeat-x");
+wetTextureLayer.style.backgroundSize = dataText("wetImageSize", "auto 100%");
+wetTextureLayer.style.transform = "translateY(" + offsetY + ") scale(" + scaleX + ", " + scaleY + ")";
+wetTextureLayer.style.transformOrigin = dataText("wetImageTransformOrigin", "center bottom");
+}
 function updateMovingImagePositions(deltaSeconds) {
 var floorY = dataText("floorImagePositionY", "center");
 var wetY = dataText("wetImagePositionY", "center");
@@ -2052,8 +2069,8 @@ floorLayers.forEach(function (layer) {
 layer.style.backgroundPosition = floorOffsetX.toFixed(2) + "px " + floorY;
 });
 
-if (wetLayer) {
-wetLayer.style.backgroundPosition = wetOffsetX.toFixed(2) + "px " + wetY;
+if (wetTextureLayer) {
+wetTextureLayer.style.backgroundPosition = wetOffsetX.toFixed(2) + "px " + wetY;
 }
 }
 
@@ -2168,14 +2185,10 @@ lastFrame = null;
 firedThisLoop = {};
 }
 
-function primeAudioActivation(now) {
-var currentFrame = getCurrentVideoFrame();
-
+function primeAudioActivation() {
 resetFrameState();
-lastFrame = currentFrame;
+lastFrame = getCurrentVideoFrame();
 lastFootstepPlayAt = 0;
-audioActivationSuppressUntil = now + Math.max(0, dataNumber("audioActivationGraceMs", 0));
-audioActivationSkipTriggersRemaining = Math.max(0, Math.round(dataNumber("audioActivationSkipTriggers", 0)));
 }
 
 function canRunVisuals() {
@@ -2339,6 +2352,7 @@ document.addEventListener("visibilitychange", function () {
 isPageVisible = !document.hidden;
 
 if (isPageVisible) {
+preloadAllAudioSamples();
 resumeVisuals();
 } else {
 pauseVisuals();
@@ -2347,11 +2361,13 @@ pauseVisuals();
 
 window.addEventListener("focus", function () {
 isPageVisible = !document.hidden;
+preloadAllAudioSamples();
 resumeVisuals();
 });
 
 window.addEventListener("pageshow", function () {
 isPageVisible = !document.hidden;
+preloadAllAudioSamples();
 resumeVisuals();
 });
 
@@ -2363,6 +2379,7 @@ if (entry.target !== root) return;
 isInView = entry.isIntersecting && entry.intersectionRatio > 0.05;
 
 if (isInView) {
+preloadAllAudioSamples();
 resumeVisuals();
 } else {
 pauseVisuals();
@@ -2376,26 +2393,27 @@ intersectionObserver.observe(root);
 }
 }
 
-function createAudioPool(urls, count) {
-var result = [];
-
-urls.forEach(function (url) {
-for (var i = 0; i < count; i++) {
-var audio = new Audio();
-audio.crossOrigin = "anonymous";
-audio.src = url;
-audio.preload = "auto";
-result.push(audio);
-}
-});
-
-return result;
+function getAudioPoolSize() {
+return Math.max(1, Math.round(dataNumber("audioPoolSize", 1)));
 }
 
 function preparePools() {
 Object.keys(soundLists).forEach(function (key) {
-pools[key] = createAudioPool(soundLists[key], 3);
+if (!pools[key]) pools[key] = [];
 });
+}
+
+function createPooledAudio(url) {
+var audio = new Audio();
+audio.crossOrigin = "anonymous";
+audio.preload = dataText("audioPreload", "auto");
+audio.src = url;
+
+try {
+audio.load();
+} catch (error) {}
+
+return audio;
 }
 
 function sameUrl(audio, url) {
@@ -2403,28 +2421,73 @@ var encoded = url.replace(/ /g, "%20");
 return audio.src.indexOf(encoded) !== -1;
 }
 
+function ensureAudioInPool(group, url, poolSize) {
+var pool = pools[group] || [];
+var existingCount = 0;
+
+pool.forEach(function (audio) {
+if (sameUrl(audio, url)) existingCount += 1;
+});
+
+while (existingCount < poolSize) {
+pool.push(createPooledAudio(url));
+existingCount += 1;
+}
+
+pools[group] = pool;
+}
+
+function preloadAudioGroup(group) {
+var urls = soundLists[group] || [];
+var poolSize = getAudioPoolSize();
+
+urls.forEach(function (url) {
+ensureAudioInPool(group, url, poolSize);
+});
+}
+
+function preloadAllAudioSamples() {
+if (audioPoolsPrepared || audioPoolsLoading) return;
+if (dataBool("audioLoadWhenVisible", true) && !isInView) return;
+
+audioPoolsLoading = true;
+preparePools();
+
+Object.keys(soundLists).forEach(function (group) {
+preloadAudioGroup(group);
+});
+
+audioPoolsPrepared = true;
+audioPoolsLoading = false;
+}
+
+
 function getAudioFromPool(url, group) {
 var pool = pools[group] || [];
+var matching = [];
 
 for (var i = 0; i < pool.length; i++) {
-if (sameUrl(pool[i], url) && pool[i].paused) {
+if (sameUrl(pool[i], url)) {
+matching.push(pool[i]);
+
+if (pool[i].paused) {
 return pool[i];
 }
 }
+}
 
-var audio = new Audio();
-audio.crossOrigin = "anonymous";
-audio.src = url;
-audio.preload = "auto";
-pool.push(audio);
-pools[group] = pool;
-return audio;
+if (matching.length) {
+return matching[0];
+}
+
+return null;
 }
 
 function playClip(url, group, volume, pitch, pan) {
 if (!url || volume <= 0) return;
 
 var audio = getAudioFromPool(url, group);
+if (!audio) return;
 
 try {
 audio.pause();
@@ -2460,16 +2523,7 @@ spawnParticleBurst("splash", footInfo);
 if (sliderVolume <= 0) return;
 
 var footstepNow = performance.now();
-var activationGraceMs = Math.max(0, dataNumber("audioActivationGraceMs", 0));
 var minFootstepIntervalMs = Math.max(0, dataNumber("footstepMinIntervalMs", 65));
-
-if (activationGraceMs > 0 && footstepNow < audioActivationSuppressUntil) return;
-
-if (audioActivationSkipTriggersRemaining > 0) {
-audioActivationSkipTriggersRemaining -= 1;
-lastFootstepPlayAt = footstepNow;
-return;
-}
 
 if (minFootstepIntervalMs > 0 && lastFootstepPlayAt > 0 && footstepNow - lastFootstepPlayAt < minFootstepIntervalMs) return;
 
@@ -2535,33 +2589,53 @@ percent = ((value - min) / (max - min)) * 100;
 slider.style.setProperty("--dfp-fill-percent", percent + "%");
 }
 
-function updateUI() {
+function updateSurfaceUI() {
 buttons.forEach(function (button) {
 button.classList.toggle("dfp-active", button.dataset.surface === currentSurface);
 });
 
 root.classList.toggle("dfp-wood-selected", currentSurface === "wood");
+}
 
+function updateVolumeUI() {
 volumeValue.textContent = Math.round((parseFloat(volumeSlider.value) || 0) * 100) + "%";
-wetnessValue.textContent = Math.round((parseFloat(wetnessSlider.value) || 0) * 100) + "%";
-speedValue.textContent = (parseFloat(speedSlider.value) || 1).toFixed(2) + "x";
-
 updateSlider(volumeSlider);
-updateSlider(wetnessSlider);
-updateSlider(speedSlider);
+}
 
-updateBlackUnderlay();
-updateAnimationTransform();
-updateAnimationPresenterState();
-updateFloorLayers();
+function updateWetnessUI() {
+wetnessValue.textContent = Math.round((parseFloat(wetnessSlider.value) || 0) * 100) + "%";
+updateSlider(wetnessSlider);
 updateWetLayer();
 updateVideoPlaceholderState();
 }
 
+function updateSpeedUI() {
+speedValue.textContent = (parseFloat(speedSlider.value) || 1).toFixed(2) + "x";
+updateSlider(speedSlider);
+}
+
+function updateStaticVisualUI() {
+updateBlackUnderlay();
+updateAnimationTransform();
+updateAnimationPresenterState();
+updateFloorLayers();
+updateVideoPlaceholderState();
+}
+
+function updateUI() {
+updateSurfaceUI();
+updateVolumeUI();
+updateWetnessUI();
+updateSpeedUI();
+updateStaticVisualUI();
+}
 buttons.forEach(function (button) {
 button.addEventListener("click", function () {
 currentSurface = button.dataset.surface || "wood";
-updateUI();
+updateSurfaceUI();
+updateFloorLayers();
+updateVideoPlaceholderState();
+preloadAllAudioSamples();
 });
 });
 
@@ -2588,36 +2662,32 @@ var becameAudible = wasSilent && volume > 0;
 lastVolumeSliderValue = volume;
 
 if (becameAudible) {
-var now = performance.now();
-
-isAudioArmed = true;
-primeAudioActivation(now);
+primeAudioActivation();
 getAudioContext();
+preloadAllAudioSamples();
 } else if (volume > 0) {
-isAudioArmed = true;
 getAudioContext();
-} else {
-isAudioArmed = false;
-audioActivationSkipTriggersRemaining = 0;
-audioActivationSuppressUntil = 0;
+preloadAllAudioSamples();
 }
 
-updateUI();
+updateVolumeUI();
 });
 
 wetnessSlider.addEventListener("input", function (event) {
 maybeStopRandomizerFromManualInput("wetness", event);
-updateUI();
+updateWetnessUI();
+preloadAllAudioSamples();
 });
 
 speedSlider.addEventListener("input", function (event) {
 maybeStopRandomizerFromManualInput("speed", event);
-updateUI();
+updateSpeedUI();
 updateAnimationSpeed();
 });
 
 creakBox.addEventListener("change", function () {
-updateUI();
+updateSurfaceUI();
+preloadAllAudioSamples();
 });
 
 if (animationVideo) {
@@ -2660,6 +2730,7 @@ updateRandomizerButton("speed");
 preparePools();
 setupAnimationVideo();
 setupVisibilityHandlers();
+preloadAllAudioSamples();
 
 if (ambienceSelect) {
 ambienceSelect.value = currentAmbience;
@@ -2668,7 +2739,7 @@ ambienceSelect.value = currentAmbience;
 applyAmbiencePreset();
 updateUI();
 
-isAudioArmed = (parseFloat(volumeSlider.value) || 0) > 0;
+preloadAllAudioSamples();
 resumeVisuals();
 });
 })();
