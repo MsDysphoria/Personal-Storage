@@ -53,6 +53,10 @@ data-wet-image-scroll-at-max-speed="-128"
 data-animation-total-frames="60"
 data-animation-frame-base="1"
 data-animation-trigger-frames="21,49"
+data-footstep-min-interval-ms="65"
+data-footstep-collapse-skipped-triggers="true"
+data-audio-activation-grace-ms="0"
+data-audio-activation-skip-triggers="0"
 
 data-left-foot-pan="-0.12"
 data-right-foot-pan="0.12"
@@ -142,7 +146,7 @@ data-footstep-pitch-random="0.03"
 data-footstep-volume-random="0.08"
 
 data-wet-pitch-at-min-speed="0.8"
-data-wet-pitch-at-mid-speed="1"
+data-wet-pitch-at-mid-speed="0.8"
 data-wet-pitch-at-max-speed="1.15"
 data-splash-pitch-random="0.04"
 data-splash-volume-random="0.12"
@@ -162,8 +166,8 @@ data-wet-volume-at-mid-speed="0.675"
 data-wet-volume-at-max-speed="0.8"
 
 data-creak-volume-at-min-speed="0"
-data-creak-volume-at-mid-speed="0.4"
-data-creak-volume-at-max-speed="0.8"
+data-creak-volume-at-mid-speed="0.55"
+data-creak-volume-at-max-speed="0.9"
 
 data-wet-full-chance-at="0.5"
 data-wet-chance-speed-multiplier="1"
@@ -176,11 +180,17 @@ data-wet-volume-max="1"
 
 data-creak-chance-at-min-speed="0"
 data-creak-chance-at-mid-speed="0.15"
-data-creak-chance-at-max-speed="0.30"
-data-creak-volume-multiplier="0.5"
-data-creak-volume-max="0.8"
+data-creak-chance-at-max-speed="0.3"
+data-creak-volume-multiplier="0.6"
+data-creak-volume-max="0.9"
 data-creak-delay-min="0"
 data-creak-delay-max="0.04"
+data-creak-pseudo-chance-enabled="true"
+data-creak-pseudo-min-misses="1"
+data-creak-pseudo-build-per-miss="0.1"
+data-creak-pseudo-max-multiplier="2.75"
+data-creak-pseudo-cooldown-min-steps="1"
+data-creak-pseudo-cooldown-max-steps="2"
 
 data-clip-recent-memory="4"
 data-footstep-recent-memory="4"
@@ -951,6 +961,12 @@ var frameMonitor = null;
 var lastFrame = null;
 var firedThisLoop = {};
 var isAudioArmed = false;
+var lastFootstepPlayAt = 0;
+var audioActivationSuppressUntil = 0;
+var audioActivationSkipTriggersRemaining = 0;
+var lastVolumeSliderValue = parseFloat(root.dataset.defaultVolume) || 0;
+var creakPseudoMisses = 0;
+var creakPseudoCooldownSteps = 0;
 
 var floorOffsetX = 0;
 var wetOffsetX = 0;
@@ -1403,6 +1419,53 @@ return clamp(baseChance * speedChance, 0, maxChance);
 
 function getCreakChance() {
 return getSpeedMappedValue("creakChance", 0, 0.15, 0.3);
+}
+
+function shouldPlayWoodCreak() {
+if (currentSurface !== "wood" || !creakBox || !creakBox.checked) {
+creakPseudoMisses = 0;
+creakPseudoCooldownSteps = 0;
+return false;
+}
+
+var baseChance = clamp(getCreakChance(), 0, 1);
+
+if (baseChance <= 0) {
+creakPseudoMisses = 0;
+return false;
+}
+
+if (!dataBool("creakPseudoChanceEnabled", true)) {
+return Math.random() <= baseChance;
+}
+
+if (creakPseudoCooldownSteps > 0) {
+creakPseudoCooldownSteps -= 1;
+creakPseudoMisses = 0;
+return false;
+}
+
+creakPseudoMisses += 1;
+
+var minMisses = Math.max(0, Math.round(dataNumber("creakPseudoMinMisses", 1)));
+var buildPerMiss = Math.max(0, dataNumber("creakPseudoBuildPerMiss", 0.35));
+var maxMultiplier = Math.max(1, dataNumber("creakPseudoMaxMultiplier", 2.75));
+var missPressure = Math.max(0, creakPseudoMisses - minMisses);
+var effectiveChance = baseChance * (1 + (missPressure * buildPerMiss));
+var maximumChance = clamp(baseChance * maxMultiplier, 0, 1);
+
+effectiveChance = clamp(effectiveChance, 0, maximumChance);
+
+if (Math.random() <= effectiveChance) {
+var cooldownMin = Math.max(0, Math.round(dataNumber("creakPseudoCooldownMinSteps", 1)));
+var cooldownMax = Math.max(cooldownMin, Math.round(dataNumber("creakPseudoCooldownMaxSteps", 3)));
+
+creakPseudoMisses = 0;
+creakPseudoCooldownSteps = randomInt(cooldownMin, cooldownMax);
+return true;
+}
+
+return false;
 }
 
 function getAnimationSpeed() {
@@ -2105,6 +2168,16 @@ lastFrame = null;
 firedThisLoop = {};
 }
 
+function primeAudioActivation(now) {
+var currentFrame = getCurrentVideoFrame();
+
+resetFrameState();
+lastFrame = currentFrame;
+lastFootstepPlayAt = 0;
+audioActivationSuppressUntil = now + Math.max(0, dataNumber("audioActivationGraceMs", 0));
+audioActivationSkipTriggersRemaining = Math.max(0, Math.round(dataNumber("audioActivationSkipTriggers", 0)));
+}
+
 function canRunVisuals() {
 return isPageVisible && isInView;
 }
@@ -2136,15 +2209,38 @@ looped = true;
 firedThisLoop = {};
 }
 
+var crossedTriggers = [];
+
 getTriggerFrames().forEach(function (targetFrame, triggerIndex) {
 if (!firedThisLoop[targetFrame] && crossedFrame(targetFrame, lastFrame, currentFrame, looped)) {
-firedThisLoop[targetFrame] = true;
-playFootstepOnce({
+crossedTriggers.push({
 targetFrame: targetFrame,
 triggerIndex: triggerIndex
 });
 }
 });
+
+if (crossedTriggers.length) {
+crossedTriggers.forEach(function (trigger) {
+firedThisLoop[trigger.targetFrame] = true;
+});
+
+if (dataBool("footstepCollapseSkippedTriggers", true)) {
+var selectedTrigger = crossedTriggers[crossedTriggers.length - 1];
+
+playFootstepOnce({
+targetFrame: selectedTrigger.targetFrame,
+triggerIndex: selectedTrigger.triggerIndex
+});
+} else {
+crossedTriggers.forEach(function (trigger) {
+playFootstepOnce({
+targetFrame: trigger.targetFrame,
+triggerIndex: trigger.triggerIndex
+});
+});
+}
+}
 
 lastFrame = currentFrame;
 }
@@ -2348,8 +2444,6 @@ audio.play().catch(function () {});
 function playFootstepOnce(footInfo) {
 var sliderVolume = parseFloat(volumeSlider.value) || 0;
 var wetness = parseFloat(wetnessSlider.value) || 0;
-var shouldPlayCreak = currentSurface === "wood" && creakBox && creakBox.checked && Math.random() <= getCreakChance();
-
 spawnParticleBurst("dust", footInfo);
 
 var wetFullChanceAt = dataNumber("wetFullChanceAt", 0.5);
@@ -2365,6 +2459,23 @@ spawnParticleBurst("splash", footInfo);
 
 if (sliderVolume <= 0) return;
 
+var footstepNow = performance.now();
+var activationGraceMs = Math.max(0, dataNumber("audioActivationGraceMs", 0));
+var minFootstepIntervalMs = Math.max(0, dataNumber("footstepMinIntervalMs", 65));
+
+if (activationGraceMs > 0 && footstepNow < audioActivationSuppressUntil) return;
+
+if (audioActivationSkipTriggersRemaining > 0) {
+audioActivationSkipTriggersRemaining -= 1;
+lastFootstepPlayAt = footstepNow;
+return;
+}
+
+if (minFootstepIntervalMs > 0 && lastFootstepPlayAt > 0 && footstepNow - lastFootstepPlayAt < minFootstepIntervalMs) return;
+
+lastFootstepPlayAt = footstepNow;
+
+var shouldPlayCreak = shouldPlayWoodCreak();
 var surfaceList = soundLists[currentSurface] || soundLists.wood;
 var footstepUrl = randomItem(surfaceList, "footstep-" + currentSurface, "footstep");
 var footstepVolume = sliderVolume * getFootstepSpeedVolume();
@@ -2382,7 +2493,7 @@ var wetBaseGain = dataNumber("wetVolumeMultiplier", 0.85);
 var wetMaxVolume = dataNumber("wetVolumeMax", 1);
 var wetVolume = sliderVolume * wetBaseGain * getWetVolumeFromWetness() * getWetSpeedVolume() * getWetRawSpeedVolume();
 var wetPitch = getWetPitch();
-var wetPan = getFootPan(footInfo, "splashPanRandom");
+var wetPan = footstepPan;
 
 wetVolume = clamp(randomizeValue(wetVolume, dataNumber("splashVolumeRandom", 0.12)), 0, wetMaxVolume);
 wetPitch = clamp(randomizeValue(wetPitch, dataNumber("splashPitchRandom", 0.04)), 0.25, 4);
@@ -2396,7 +2507,7 @@ var creakBaseGain = dataNumber("creakVolumeMultiplier", 0.8);
 var creakMaxVolume = dataNumber("creakVolumeMax", 1);
 var creakVolume = sliderVolume * creakBaseGain * getCreakSpeedVolume();
 var creakPitch = getCreakPitch();
-var creakPan = getFootPan(footInfo, "creakPanRandom");
+var creakPan = footstepPan;
 var delayMin = dataNumber("creakDelayMin", 0);
 var delayMax = dataNumber("creakDelayMax", 0.08);
 var delay = lerp(delayMin, delayMax, Math.random()) * 1000;
@@ -2471,10 +2582,24 @@ toggleRandomizer(button.dataset.randomizer || "");
 
 volumeSlider.addEventListener("input", function () {
 var volume = parseFloat(volumeSlider.value) || 0;
+var wasSilent = lastVolumeSliderValue <= 0;
+var becameAudible = wasSilent && volume > 0;
 
-if (volume > 0) {
+lastVolumeSliderValue = volume;
+
+if (becameAudible) {
+var now = performance.now();
+
+isAudioArmed = true;
+primeAudioActivation(now);
+getAudioContext();
+} else if (volume > 0) {
 isAudioArmed = true;
 getAudioContext();
+} else {
+isAudioArmed = false;
+audioActivationSkipTriggersRemaining = 0;
+audioActivationSuppressUntil = 0;
 }
 
 updateUI();
