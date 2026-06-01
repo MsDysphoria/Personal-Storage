@@ -1,5 +1,5 @@
 <div
-class="dysphoria-pad"
+class="dysphoria-vertical-crossfade-pad"
 
 data-top-item-index="1"
 data-bottom-item-index="2"
@@ -219,7 +219,7 @@ data-random-mode-scale-y="1"
 </div>
 </div>
 <style>
-.dysphoria-pad {
+.dysphoria-vertical-crossfade-pad {
 --dvcfp-bg: rgb(13 13 13 / 78%);
 --dvcfp-border: rgb(120 88 49 / 68%);
 --dvcfp-border-soft: rgb(120 88 49 / 34%);
@@ -251,29 +251,29 @@ user-select: none;
 -webkit-tap-highlight-color: transparent;
 }
 
-.dysphoria-pad *,
-.dysphoria-pad *::before,
-.dysphoria-pad *::after {
+.dysphoria-vertical-crossfade-pad *,
+.dysphoria-vertical-crossfade-pad *::before,
+.dysphoria-vertical-crossfade-pad *::after {
 box-sizing: border-box;
 user-select: none;
 -webkit-user-select: none;
 -webkit-touch-callout: none;
 }
 
-.dysphoria-pad ::selection {
+.dysphoria-vertical-crossfade-pad ::selection {
 background: transparent;
 color: inherit;
 }
 
-.dysphoria-pad button,
-.dysphoria-pad input[type="range"] {
+.dysphoria-vertical-crossfade-pad button,
+.dysphoria-vertical-crossfade-pad input[type="range"] {
 cursor: var(--dvcfp-pointer) !important;
 }
 
-.dysphoria-pad input[type="range"]::-webkit-slider-runnable-track,
-.dysphoria-pad input[type="range"]::-webkit-slider-thumb,
-.dysphoria-pad input[type="range"]::-moz-range-track,
-.dysphoria-pad input[type="range"]::-moz-range-thumb {
+.dysphoria-vertical-crossfade-pad input[type="range"]::-webkit-slider-runnable-track,
+.dysphoria-vertical-crossfade-pad input[type="range"]::-webkit-slider-thumb,
+.dysphoria-vertical-crossfade-pad input[type="range"]::-moz-range-track,
+.dysphoria-vertical-crossfade-pad input[type="range"]::-moz-range-thumb {
 cursor: var(--dvcfp-pointer) !important;
 }
 
@@ -353,7 +353,7 @@ background:
 linear-gradient(180deg, rgb(30 24 20 / 50%), rgb(8 8 8 / 62%)),
 radial-gradient(circle at 100% 0%, rgb(244 190 148 / 7%), transparent 36%);
 box-shadow:
-0 0.35rem 0.85rem rgb(0 0 0 / 26%),
+0 0.2rem 0.1rem rgb(0 0 0 / 55%),
 inset 0 0 0 1px rgb(255 255 255 / 3%),
 inset 0 0 1.1rem rgb(0 0 0 / 32%);
 }
@@ -421,6 +421,7 @@ gap: 0.45rem;
 margin: 0;
 padding: 0.06rem 0.02rem 0.42rem;
 border-bottom: 1px solid var(--dvcfp-border-soft);
+
 }
 
 .dvcfp-title {
@@ -476,6 +477,7 @@ grid-template-columns: repeat(4, minmax(0, 1fr));
 gap: 0.24rem;
 align-self: stretch;
 align-items: stretch;
+
 }
 
 .dvcfp-mixer-strip {
@@ -699,7 +701,7 @@ transform: translate(-50%, -50%) rotate(45deg);
 opacity: 0;
 }
 
-.dysphoria-pad.dvcfp-crosshair-smoothing-off .dvcfp-response {
+.dysphoria-vertical-crossfade-pad.dvcfp-crosshair-smoothing-off .dvcfp-response {
 opacity: 0.58;
 filter: saturate(0.65) brightness(0.85);
 }
@@ -1043,7 +1045,7 @@ object-fit: contain;
 display: block;
 opacity: 0.9;
 pointer-events: none;
-filter: drop-shadow(0 0.22rem 0.22rem rgb(0 0 0 / 70%));
+filter: drop-shadow(0 0.22rem 0.1rem rgb(0 0 0 / 90%));
 transition: opacity 180ms ease, transform 180ms ease, filter 180ms ease;
 }
 
@@ -1051,9 +1053,9 @@ transition: opacity 180ms ease, transform 180ms ease, filter 180ms ease;
 opacity: 1;
 transform: scale(1.08);
 filter:
-drop-shadow(0 0.22rem 0.22rem rgb(0 0 0 / 75%))
+drop-shadow(0 0.1rem 0.05rem rgb(0 0 0 / 90%))
 drop-shadow(0 0 0.45rem rgb(244 190 148 / 75%))
-drop-shadow(0 0 0.85rem rgb(159 71 17 / 55%))
+drop-shadow(0 0 0.85rem rgb(159 71 17 / 45%))
 brightness(1.2)
 saturate(1.18);
 }
@@ -1086,6 +1088,8 @@ background: rgb(0 0 0 / 55%);
 cursor: crosshair;
 touch-action: none;
 user-select: none;
+filter:
+drop-shadow(0 0.2rem 0.05rem rgb(0 0 0 / 90%));
 }
 
 .dvcfp-pad:focus {
@@ -1201,7 +1205,7 @@ justify-self: center;
 
 <script>
 (function () {
-var roots = document.querySelectorAll(".dysphoria-pad");
+var roots = document.querySelectorAll(".dysphoria-vertical-crossfade-pad");
 
 roots.forEach(function (root) {
 if (root.dataset.dvcfpReady === "true") return;
@@ -2573,7 +2577,7 @@ slot.style.setProperty("--dvcfp-live-fader-height", rect.height + "px");
 }
 
 function syncAllFaderHeights() {
-document.querySelectorAll(".dysphoria-pad").forEach(syncFaderHeights);
+document.querySelectorAll(".dysphoria-vertical-crossfade-pad").forEach(syncFaderHeights);
 }
 
 function scheduleSync() {
@@ -2634,7 +2638,7 @@ panel.style.setProperty(pair[1], value);
 }
 
 function applyAllMixerParameters() {
-document.querySelectorAll(".dysphoria-pad").forEach(applyMixerParameters);
+document.querySelectorAll(".dysphoria-vertical-crossfade-pad").forEach(applyMixerParameters);
 }
 
 if (document.readyState === "loading") {
