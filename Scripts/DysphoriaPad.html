@@ -92,7 +92,7 @@ data-panning-front-z="-1.25"
 data-panning-back-z="1.25"
 data-panning-dezipper-ms="70"
 data-panning-strength-default="0.45"
-data-panning-deadzone="0.10"
+data-panning-deadzone="0.02"
 data-panning-deadzone-softness="0.16"
 
 data-response-default="0.35"
@@ -227,11 +227,11 @@ data-random-mode-scale-y="1"
 --dvcfp-text-soft: rgb(155 143 137 / 68%);
 --dvcfp-accent: rgb(159 71 17);
 --dvcfp-accent-soft: rgb(159 71 17 / 35%);
---dvcfp-button-active-border: rgb(244 190 148 / 72%);
+--dvcfp-button-active-border: rgb(134 130 128 / 72%);
 --dvcfp-slider-track-bg: rgb(19 19 19 / 82%);
 --dvcfp-slider-track-border: rgb(120 88 49 / 45%);
---dvcfp-slider-fill: rgb(159 71 17);
---dvcfp-slider-knob-bg: linear-gradient(135deg, rgb(255 190 91), rgb(159 71 17));
+--dvcfp-slider-fill: rgb(100 70 45);
+--dvcfp-slider-knob-bg: linear-gradient(135deg, rgb(185 140 101), rgb(140 70 10));
 --dvcfp-slider-knob-border: rgb(244 190 148 / 58%);
 --dvcfp-slider-knob-shadow: 0 0 0 1px rgb(0 0 0 / 55%), 0 0 9px rgb(159 71 17 / 55%);
 --dvcfp-pad-width: 14rem;
@@ -294,7 +294,7 @@ cursor: var(--dvcfp-pointer) !important;
 --dvcfp-random-mode-scale-x: 1;
 --dvcfp-random-mode-scale-y: 1;
 --dvcfp-random-mode-width: calc(100% - 0.44rem);
---dvcfp-random-mode-height: 1.02rem;
+--dvcfp-random-mode-height: 1.150rem;
 position: relative;
 width: 100%;
 max-width: 100%;
@@ -419,7 +419,7 @@ align-items: center;
 justify-content: space-between;
 gap: 0.45rem;
 margin: 0;
-padding: 0.06rem 0.02rem 0.42rem;
+padding: 0rem 0.02rem 0.4rem;
 border-bottom: 1px solid var(--dvcfp-border-soft);
 
 }
@@ -438,9 +438,9 @@ text-shadow:
 }
 
 .dvcfp-title-note {
-margin-top: 0.20rem;
+margin-top: 0.25rem;
 margin-left: 0.16rem;
-font-size: 0.54rem;
+font-size: 0.57rem;
 text-align: left;
 letter-spacing: 0.16em;
 text-transform: uppercase;
@@ -452,8 +452,8 @@ text-shadow:
 }
 
 .dvcfp-control-emblem {
-width: 1.68rem;
-height: 1.68rem;
+width: 1.85rem;
+height: 1.85rem;
 flex: 0 0 auto;
 border: 1px solid rgb(244 190 148 / 22%);
 background:
@@ -520,8 +520,8 @@ opacity: 0.78;
 .dvcfp-mixer-strip::after {
 content: "";
 position: absolute;
-left: 0.52rem;
-right: 0.52rem;
+left: 0.25rem;
+right: 0.25rem;
 bottom: var(--dvcfp-final-divider-bottom);
 height: 1px;
 pointer-events: none;
@@ -570,8 +570,8 @@ inset 0 0 0.65rem rgb(0 0 0 / 22%);
 
 .dvcfp-icon-button[aria-pressed="true"] {
 background:
-radial-gradient(circle at 50% 26%, rgb(244 190 148 / 18%), transparent 52%),
-linear-gradient(180deg, rgb(92 48 24 / 82%), rgb(31 18 14 / 88%));
+radial-gradient(circle at 50% 26%, rgb(254 190 198 / 18%), transparent 52%),
+linear-gradient(180deg, rgb(100 70 35 / 82%), rgb(31 18 16 / 88%));
 border-color: var(--dvcfp-button-active-border);
 color: var(--dvcfp-text);
 box-shadow:
@@ -769,7 +769,7 @@ position: absolute;
 left: var(--dvcfp-slider-label-x-position);
 top: calc(50% + var(--dvcfp-slider-label-y-position));
 z-index: 3;
-width: 0.48rem;
+width: 0.4rem;
 height: auto;
 display: flex;
 align-items: center;
@@ -777,7 +777,7 @@ justify-content: center;
 writing-mode: horizontal-tb;
 transform: translateY(-50%) rotate(270deg);
 transform-origin: center center;
-font-size: 0.46rem;
+font-size: 0.48rem;
 letter-spacing: 0.14em;
 line-height: 1;
 text-transform: uppercase;
@@ -866,13 +866,13 @@ position: absolute;
 left: 0;
 right: 0;
 bottom: var(--dvcfp-final-strip-pad-bottom);
-height: 0.76rem;
+height: 0.95rem;
 min-height: 0;
 width: 100%;
 display: flex;
 align-items: center;
 justify-content: center;
-font-size: 0.46rem;
+font-size: 0.50rem;
 letter-spacing: 0.12em;
 text-transform: uppercase;
 line-height: 1;
@@ -903,7 +903,7 @@ box-shadow:
 0 0.16rem 0.36rem rgb(0 0 0 / 24%),
 inset 0 0 0.48rem rgb(0 0 0 / 32%);
 font: inherit;
-font-size: 0.44rem;
+font-size: 0.50rem;
 letter-spacing: 0.08em;
 text-transform: uppercase;
 line-height: 1;
@@ -944,8 +944,8 @@ left: var(--dvcfp-random-mode-x-position);
 bottom: calc(var(--dvcfp-final-strip-pad-bottom) + var(--dvcfp-random-mode-y-position) + var(--dvcfp-random-mode-height) + 0.14rem);
 width: var(--dvcfp-random-mode-width);
 display: none;
-grid-template-rows: repeat(3, 1.02rem);
-gap: 0.12rem;
+grid-template-rows: repeat(3, 1.28rem);
+gap: 0rem;
 z-index: 18;
 transform: translateX(-50%);
 pointer-events: auto;
@@ -958,8 +958,8 @@ display: grid;
 .dvcfp-random-mode-button {
 position: relative;
 width: 100%;
-height: 1.02rem;
-padding: 0 0.12rem;
+height: 1.15rem;
+padding: 0 0.15rem;
 margin: 0;
 border: 1px solid rgb(120 88 49 / 32%);
 background:
@@ -969,7 +969,7 @@ box-shadow:
 0 0.15rem 0.15rem rgb(0 0 0 / 80%),
 inset 0 0 0.48rem rgb(0 0 0 / 32%);
 font: inherit;
-font-size: 0.44rem;
+font-size: 0.5rem;
 letter-spacing: 0.08em;
 text-transform: uppercase;
 line-height: 1;
