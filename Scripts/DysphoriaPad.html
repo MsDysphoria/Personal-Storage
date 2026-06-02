@@ -61,7 +61,7 @@ data-left-overlay-blend-mode="multiply"
 
 data-default-volume="0.85"
 data-default-muted="false"
-data-fade-in-ms="1400"
+data-fade-in-ms="1000"
 data-audio-dezipper-ms="20"
 data-pitch-dezipper-ms="35"
 data-item-crossfade-ms="3000"
@@ -298,7 +298,7 @@ cursor: var(--dvcfp-pointer) !important;
 position: relative;
 width: 100%;
 max-width: 100%;
-padding: 0.48rem;
+padding: 0rem;
 overflow: hidden;
 border: 1px solid var(--dvcfp-border);
 background:
@@ -307,7 +307,7 @@ radial-gradient(circle at 82% 18%, rgb(244 190 148 / 7%), transparent 34%),
 linear-gradient(135deg, rgb(24 19 16 / 90%), rgb(8 8 8 / 94%));
 display: grid;
 grid-template-columns: minmax(0, 1fr) var(--dvcfp-pad-panel-width);
-gap: 0.48rem;
+gap: 0rem;
 align-items: stretch;
 box-shadow:
 0 0.65rem 1.35rem rgb(0 0 0 / 34%),
@@ -455,16 +455,24 @@ height: 1.68rem;
 flex: 0 0 auto;
 border: 1px solid rgb(244 190 148 / 22%);
 background:
-radial-gradient(circle, rgb(159 71 17 / 34%), transparent 62%),
+radial-gradient(circle, rgb(0 0 0 / 34%), transparent 62%),
 rgb(0 0 0 / 28%);
 display: flex;
 align-items: center;
 justify-content: center;
-color: rgb(244 190 148 / 58%);
+color: rgb(100 100 100 / 58%);
 font-size: 0.7rem;
 box-shadow:
 0 0.15rem 0.15rem rgb(0 0 0 / 80%),
 inset 0 0 0.75rem rgb(0 0 0 / 35%);
+transition: color 1s ease, background 1s ease;
+}
+
+.dvcfp-control-emblem.is-playing {
+color: rgb(244 190 148 / 58%);
+background:
+radial-gradient(circle, rgb(159 71 17 / 34%), transparent 62%),
+rgb(0 0 0 / 28%);
 }
 
 .dvcfp-mixer-bank {
@@ -1285,8 +1293,8 @@ var audioStarted = false;
 var randomActive = false;
 var isCrosshairSmoothingEnabled = true;
 var randomModeValue = normalizeRandomMode(dataText("randomize-mode", "wander"));
-var fadeStartTime = 0;
-var fadeDuration = Math.max(0, dataNumber("fade-in-ms", 1400));
+var currentMasterVolume = 0;
+var isExternallyPlaying = false;
 var rafId = 0;
 var lastTime = 0;
 
@@ -1476,6 +1484,25 @@ button.classList.toggle("is-selected", isSelected);
 button.classList.toggle("is-locked", isLocked);
 button.disabled = isLocked;
 });
+}
+
+function updateExternalAudioState() {
+var shouldBePlaying = isStarted && !isMuted;
+var emblem = root.querySelector(".dvcfp-control-emblem");
+
+if (shouldBePlaying) {
+if (emblem) emblem.classList.add("is-playing");
+if (!isExternallyPlaying && window.msAudioController && typeof window.msAudioController.mute === 'function') {
+window.msAudioController.mute();
+}
+isExternallyPlaying = true;
+} else {
+if (emblem) emblem.classList.remove("is-playing");
+if (isExternallyPlaying && window.msAudioController && typeof window.msAudioController.resume === 'function') {
+window.msAudioController.resume();
+}
+isExternallyPlaying = false;
+}
 }
 
 function ensureAudioContext() {
@@ -2085,7 +2112,6 @@ createDeck("top", currentItems.top, 1),
 createDeck("bottom", currentItems.bottom, 1)
 ]).then(function () {
 audioStarted = true;
-fadeStartTime = performance.now();
 });
 }
 
@@ -2095,7 +2121,7 @@ if (!context) return;
 
 if (!isStarted) {
 isStarted = true;
-fadeStartTime = performance.now();
+updateExternalAudioState();
 startLoop();
 }
 
@@ -2171,20 +2197,22 @@ if (layerDuration.top > 0) layerPhase.top = layerPhase.top % layerDuration.top;
 if (layerDuration.bottom > 0) layerPhase.bottom = layerPhase.bottom % layerDuration.bottom;
 }
 
-function updateAudioMix(mix) {
+function updateAudioMix(mix, deltaMs) {
 if (!audioStarted || !masterGain || !audioContext) return;
 
-var wantedVolume = isMuted ? 0 : parseFloat(volumeSlider.value) || 0;
-
-if (fadeDuration > 0 && performance.now() - fadeStartTime < fadeDuration && !isMuted) {
-var fadeProgress = clamp((performance.now() - fadeStartTime) / fadeDuration, 0, 1);
-wantedVolume *= fadeProgress;
-}
-
+var wantedVolume = isMuted ? 0 : (parseFloat(volumeSlider.value) || 0);
 var dezipperMs = dataNumber("audio-dezipper-ms", 20);
 var pitchDezipperMs = dataNumber("pitch-dezipper-ms", Math.max(15, dezipperMs));
 
-setAudioParam(masterGain.gain, wantedVolume, dezipperMs);
+var step = deltaMs / 1000;
+
+if (currentMasterVolume < wantedVolume) {
+currentMasterVolume = Math.min(wantedVolume, currentMasterVolume + step);
+} else if (currentMasterVolume > wantedVolume) {
+currentMasterVolume = Math.max(wantedVolume, currentMasterVolume - step);
+}
+
+setAudioParam(masterGain.gain, currentMasterVolume, dezipperMs);
 
 function updateDeck(deck, layerAmount, pitch, layerTargetVolume) {
 if (!deck || !deck.active) return;
@@ -2361,7 +2389,7 @@ var mix = calculateMix(visualPosition.x, visualPosition.y);
 
 updateLayerPhase(mix, deltaMs);
 updateCrosshairAndOverlays(visualPosition.x, visualPosition.y);
-updateAudioMix(mix);
+updateAudioMix(mix, deltaMs);
 
 rafId = requestAnimationFrame(updateAudioFrame);
 }
@@ -2374,8 +2402,13 @@ rafId = requestAnimationFrame(updateAudioFrame);
 
 function onPadPointerDown(event) {
 event.preventDefault();
-
 startAudio();
+
+if (isMuted) {
+isMuted = false;
+updateMuteButton();
+updateExternalAudioState();
+}
 
 isDragging = true;
 randomActive = false;
@@ -2414,12 +2447,31 @@ if (event.key === "Enter" || event.key === " ") { startAudio(); changed = true; 
 
 if (!changed) return;
 
+if (isMuted) {
+isMuted = false;
+updateMuteButton();
+updateExternalAudioState();
+}
+
 randomActive = false;
 updateRandomizeButton();
 event.preventDefault();
 }
 
 function bindEvents() {
+if (window.IntersectionObserver) {
+var visObserver = new IntersectionObserver(function(entries) {
+entries.forEach(function(entry) {
+if (!entry.isIntersecting && isStarted && !isMuted) {
+isMuted = true;
+updateMuteButton();
+updateExternalAudioState();
+}
+});
+}, { threshold: 0.01 });
+visObserver.observe(root);
+}
+
 if (panel) {
 panel.addEventListener("pointerdown", function (event) {
 if (pad && pad.contains(event.target)) return;
@@ -2440,6 +2492,7 @@ muteButton.addEventListener("click", function () {
 startAudio();
 isMuted = !isMuted;
 updateMuteButton();
+updateExternalAudioState();
 });
 }
 
@@ -2450,6 +2503,7 @@ updateSliderFill(volumeSlider);
 if (parseFloat(volumeSlider.value) > 0) {
 isMuted = false;
 updateMuteButton();
+updateExternalAudioState();
 startAudio();
 }
 });
@@ -2538,6 +2592,12 @@ if (!Number.isFinite(itemIndex) || button.disabled) return;
 
 replaceLayer(layer, itemIndex);
 startAudio();
+
+if (isMuted) {
+isMuted = false;
+updateMuteButton();
+updateExternalAudioState();
+}
 });
 });
 }
@@ -2563,7 +2623,6 @@ init();
 });
 })();
 </script>
-
 
 <script>
 (function () {
@@ -2605,7 +2664,6 @@ try { observer.observe(element); } catch (error) {}
 }
 })();
 </script>
-
 
 <script>
 (function () {
