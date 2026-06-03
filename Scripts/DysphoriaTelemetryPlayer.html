@@ -1204,8 +1204,6 @@ window.addEventListener("resize", function() {
     updateColors();
     waveformCache.key = "";
       drawStaticOscilloscope();
-        generateSilentWaveform();
-    requestWaveformDraw(true);
   }, 150);
 
     setTimeout(function() {
@@ -1213,9 +1211,7 @@ window.addEventListener("resize", function() {
     resizeCanvas();
     drawStaticOscilloscope();
     renderTracklist();
-    generateSilentWaveform();
-    
-    requestWaveformDraw(true); 
+
   }, 50);
 });
   updateColors();
