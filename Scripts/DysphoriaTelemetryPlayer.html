@@ -1072,8 +1072,9 @@ audio.addEventListener("play", function() {
   
   if (!animationId) renderFrame(); 
   
-  if (window.msAudioController && typeof window.msAudioController.mute === 'function') {
-window.msAudioController.mute();
+  if (window.msAudioController && typeof window.msAudioController.mute === "function") {
+    window.msAudioController.mute();
+  }
 });
 audio.addEventListener("pause", function() {
   isPlaying = false;
@@ -1086,10 +1087,11 @@ audio.addEventListener("pause", function() {
   animationId = null;
   
   root.style.setProperty('--dtp-glow-intensity', '0');
-if (window.msAudioController && typeof window.msAudioController.resume === 'function') {
-window.msAudioController.resume();
+  if (window.msAudioController && typeof window.msAudioController.resume === "function") {
+    window.msAudioController.resume();
+  }
+drawStaticOscilloscope();
 
-}
     
 });
   audio.addEventListener("timeupdate", function() {
