@@ -695,7 +695,7 @@ function renderFrame() {
 function generateSilentWaveform() {
     waveformValues = [];
     
-    var placeholderHeight = 0.01; 
+    var placeholderHeight = 0.08; 
     
     for (var i = 0; i < TARGET_BARS; i++) {
       waveformValues.push(placeholderHeight);
@@ -1197,16 +1197,26 @@ window.addEventListener("resize", function() {
     resizeCanvas();
     updateColors();
     waveformCache.key = "";
+      drawStaticOscilloscope();
+        generateSilentWaveform();
     requestWaveformDraw(true);
   }, 150);
 
+    setTimeout(function() {
+    updateColors();
+    resizeCanvas();
+    drawStaticOscilloscope();
+    renderTracklist();
+    generateSilentWaveform();
     
+    requestWaveformDraw(true); 
+  }, 50);
 });
   updateColors();
   renderTracklist();
   generateSilentWaveform();
   drawStaticOscilloscope();
-  
+  requestWaveformDraw(true); 
 })();
 </script>
 
