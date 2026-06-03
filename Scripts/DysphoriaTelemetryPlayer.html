@@ -216,7 +216,7 @@ cursor: var(--dtp-custom-cursor) !important;
     padding: 0.06rem 0.28rem;
     background: rgb(0 0 0 / 42%);
     border: 1px solid rgb(218 178 136 / 22%);
-    color: rgb(245 177 155 / 86%);
+    color: rgb(222 177 133 / 86%);
     font-size: 0.61rem;
     letter-spacing: 0.03em;
     font-variant-numeric: tabular-nums;
@@ -579,8 +579,20 @@ cursor: var(--dtp-custom-cursor) !important;    transition: background 150ms eas
     canvas.width = rect.width * (window.devicePixelRatio || 1);
     canvas.height = rect.height * (window.devicePixelRatio || 1);
   }
-
+function drawStaticOscilloscope() {
+    if (!ctx) return;
+    ctx.clearRect(0, 0, canvas.width, canvas.height);
+    
+    ctx.lineWidth = 2 * (window.devicePixelRatio || 1);
+    ctx.strokeStyle = cOscColor || "rgb(220, 190, 148)";
+    
+    ctx.beginPath();
+    ctx.moveTo(0, canvas.height / 2);
+    ctx.lineTo(canvas.width, canvas.height / 2);
+    ctx.stroke();
+  }
 function renderFrame() {
+    if (!isPlaying) return;
   animationId = requestAnimationFrame(renderFrame);
   if (!analyser) return;
 
@@ -591,22 +603,6 @@ function renderFrame() {
 
   ctx.strokeStyle = "rgb(244 190 148 / 4%)";
   ctx.lineWidth = 1;
-  
-  var gridSize = 16;
-    
-    for (var x = 0; x < canvas.width; x += gridSize) {
-      ctx.beginPath();
-      ctx.moveTo(x, 0);
-      ctx.lineTo(x, canvas.height);
-      ctx.stroke();
-    }
-    
-    for (var y = 0; y < canvas.width; y += gridSize) {
-      ctx.beginPath();
-      ctx.moveTo(0, y);
-      ctx.lineTo(canvas.width, y);
-      ctx.stroke();
-    }
 
     ctx.lineWidth = 2 * (window.devicePixelRatio || 1);
     ctx.strokeStyle = cOscColor;
@@ -696,9 +692,15 @@ function renderFrame() {
     return payload;
   }
 
-  function generateSilentWaveform() {
+function generateSilentWaveform() {
     waveformValues = [];
-    for (var i = 0; i < TARGET_BARS; i++) waveformValues.push(WAVEFORM_MIN);
+    
+    var placeholderHeight = 0.01; 
+    
+    for (var i = 0; i < TARGET_BARS; i++) {
+      waveformValues.push(placeholderHeight);
+    }
+    
     markWaveformChanged();
   }
 
@@ -1058,18 +1060,27 @@ function renderTracklist() {
 audio.addEventListener("play", function() {
   isPlaying = true;
   root.classList.add("dtp-playing");
-  if (mainDisplayEl) mainDisplayEl.classList.add("dtp-active-bg"); // Trigger fade-in
+  if (mainDisplayEl) mainDisplayEl.classList.add("dtp-active-bg");
   uiStatus.textContent = "SYS.ACTIVE";
   updateHighlight();
+  
+  if (!animationId) renderFrame(); 
 });
 audio.addEventListener("pause", function() {
   isPlaying = false;
   root.classList.remove("dtp-playing");
-  if (mainDisplayEl) mainDisplayEl.classList.remove("dtp-active-bg"); // Trigger fade-out
+  if (mainDisplayEl) mainDisplayEl.classList.remove("dtp-active-bg");
   uiStatus.textContent = "SYS.PAUSED";
   updateHighlight();
+  
+  cancelAnimationFrame(animationId);
+  animationId = null;
+  
+  root.style.setProperty('--dtp-glow-intensity', '0');
+  
+drawStaticOscilloscope();
+    
 });
-
   audio.addEventListener("timeupdate", function() {
     uiTimeCur.textContent = formatTime(audio.currentTime);
     requestWaveformDraw(false);
@@ -1178,16 +1189,24 @@ var nextIdx = currentIndex + 1;
   }
 
   audio.volume = parseFloat(volSlider.value);
-  window.addEventListener("resize", function() {
+var resizeTimer;
+window.addEventListener("resize", function() {
+  clearTimeout(resizeTimer);
+  
+  resizeTimer = setTimeout(function() {
     resizeCanvas();
     updateColors();
     waveformCache.key = "";
     requestWaveformDraw(true);
-  });
+  }, 150);
 
+    
+});
   updateColors();
   renderTracklist();
   generateSilentWaveform();
+  drawStaticOscilloscope();
+  
 })();
 </script>
 
