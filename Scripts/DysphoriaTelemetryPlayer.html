@@ -1050,8 +1050,13 @@ function renderTracklist() {
 
   audio.addEventListener("ended", function() {
     uiStatus.textContent = "SYS.IDLE";
-    scanRandom();
-  });
+var nextIdx = currentIndex + 1;
+    
+    if (nextIdx >= trackDatabase.length || nextIdx < 0) {
+      nextIdx = 0;
+    }
+    
+    loadTrack(nextIdx);  });
 
   playBtn.addEventListener("click", function() {
     if (currentIndex === -1) loadTrack(0);
