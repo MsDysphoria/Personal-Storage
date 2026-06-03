@@ -628,7 +628,7 @@ function renderFrame() {
     for (var b = 0; b < actualBins; b++) bassSum += freqDataArray[b];
     var bassAvg = bassSum / actualBins / 255.0;
     
-    if (Math.abs(bassAvg - lastBassAvg) > 0.01) {
+    if (Math.abs(bassAvg - lastBassAvg) > 0.001) {
       root.style.setProperty('--dtp-glow-intensity', bassAvg.toFixed(3));
       lastBassAvg = bassAvg;
     }
@@ -1000,31 +1000,41 @@ function renderTracklist() {
     });
   }
 
-  function fadeAudio(target, duration, onComplete) {
+function fadeAudio(targetVolume, durationMs, onComplete) {
     clearInterval(fadeTimer);
-    var startVol = audio.volume;
-    var diff = target - startVol;
-    var steps = 20;
-    var stepTime = duration / steps;
-    var currentStep = 0;
-    fadeTimer = setInterval(function() {
-      currentStep++;
-      audio.volume = clamp(startVol + (diff * (currentStep / steps)), 0, 1);
-      if (currentStep >= steps) {
-        clearInterval(fadeTimer);
-        audio.volume = clamp(target, 0, 1);
+    
+    var startVolume = audio.volume;
+    var volumeDelta = targetVolume - startVolume;
+    var startTime = performance.now();
+
+    function updateFade() {
+      var elapsed = performance.now() - startTime;
+      var progress = Math.min(elapsed / durationMs, 1);
+
+      audio.volume = startVolume + (volumeDelta * progress);
+
+      if (progress < 1) {
+        fadeTimer = requestAnimationFrame(updateFade);
+      } else {
+        audio.volume = targetVolume;
         if (onComplete) onComplete();
       }
-    }, stepTime);
-  }
+    }
 
+    fadeTimer = requestAnimationFrame(updateFade);
+  }
   function loadTrack(index) {
     if (!audioCtx) initAudioContext();
     if (audioCtx.state === "suspended") audioCtx.resume();
 
-    if (currentIndex === index) {
+if (currentIndex === index) {
       if (isPlaying) {
-        fadeAudio(0, 1000, function() { audio.pause(); });
+        uiStatus.textContent = "SYS.PAUSED";
+        if (mainDisplayEl) mainDisplayEl.classList.remove("dtp-active-bg");
+        
+        fadeAudio(0, 1000, function() { 
+          audio.pause(); 
+        });
       } else {
         audio.volume = 0;
         audio.play();
@@ -1117,14 +1127,22 @@ var nextIdx = currentIndex + 1;
     
     loadTrack(nextIdx);  });
 
-  playBtn.addEventListener("click", function() {
+playBtn.addEventListener("click", function() {
     if (currentIndex === -1) loadTrack(0);
-    else if (isPlaying) fadeAudio(0, 1000, function() { audio.pause(); });
-    else {
+    else if (isPlaying) {
+      uiStatus.textContent = "SYS.PAUSED";
+      if (mainDisplayEl) mainDisplayEl.classList.remove("dtp-active-bg");
+      
+      fadeAudio(0, 1000, function() { 
+        audio.pause(); 
+      }); 
+    } else {
       if (!audioCtx) initAudioContext();
       if (audioCtx.state === "suspended") audioCtx.resume();
-      audio.volume = 0;
+      
+      audio.volume = 0; 
       audio.play();
+      
       fadeAudio(parseFloat(volSlider.value), 1000);
     }
   });
