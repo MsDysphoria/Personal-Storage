@@ -512,6 +512,7 @@ cursor: var(--dtp-custom-cursor) !important;    transition: background 150ms eas
 
   var currentIndex = -1;
   var isPlaying = false;
+var lastBassAvg = 0;
 
   var waveformValues = [];
   var waveformReady = false;
@@ -592,24 +593,25 @@ function drawStaticOscilloscope() {
     ctx.stroke();
   }
 function renderFrame() {
-    if (!isPlaying) return;
-  animationId = requestAnimationFrame(renderFrame);
-  if (!analyser) return;
+    if (!isPlaying) return; 
 
-  analyser.getByteTimeDomainData(dataArray);
-  analyser.getByteFrequencyData(freqDataArray);
+    animationId = requestAnimationFrame(renderFrame);
+    if (!analyser) return;
 
-  ctx.clearRect(0, 0, canvas.width, canvas.height);
+    analyser.getByteTimeDomainData(dataArray);
+    analyser.getByteFrequencyData(freqDataArray);
 
-  ctx.strokeStyle = "rgb(244 190 148 / 4%)";
-  ctx.lineWidth = 1;
+    ctx.clearRect(0, 0, canvas.width, canvas.height);
 
     ctx.lineWidth = 2 * (window.devicePixelRatio || 1);
     ctx.strokeStyle = cOscColor;
     ctx.beginPath();
-    var sliceWidth = canvas.width * 1.0 / dataArray.length;
+    
+    var step = 4;
+    var sliceWidth = canvas.width * step / dataArray.length;
     var waveX = 0;
-    for (var i = 0; i < dataArray.length; i++) {
+    
+    for (var i = 0; i < dataArray.length; i += step) {
       var v = dataArray[i] / 128.0;
       var waveY = v * (canvas.height / 2);
       if (i === 0) ctx.moveTo(waveX, waveY);
@@ -625,7 +627,11 @@ function renderFrame() {
     var actualBins = Math.max(1, maxBin);
     for (var b = 0; b < actualBins; b++) bassSum += freqDataArray[b];
     var bassAvg = bassSum / actualBins / 255.0;
-    root.style.setProperty('--dtp-glow-intensity', bassAvg.toFixed(3));
+    
+    if (Math.abs(bassAvg - lastBassAvg) > 0.01) {
+      root.style.setProperty('--dtp-glow-intensity', bassAvg.toFixed(3));
+      lastBassAvg = bassAvg;
+    }
   }
   function clamp(v, min, max) { return Math.max(min, Math.min(max, v)); }
 
