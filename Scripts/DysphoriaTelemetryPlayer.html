@@ -30,7 +30,7 @@
     --dtp-waveform-cursor: rgba(255, 190, 91, 0.76);
     
     --dtp-osc-color: rgb(220, 190, 148);
-    --dtp-osc-bg: rgba(50, 25, 10, 0.4);
+    --dtp-osc-bg: rgba(50, 25, 10, 0.9);
 
     --dtp-bass-max-hz: 1;
     --dtp-glow-intensity: 0;
@@ -94,29 +94,43 @@ fill: var(--dtp-text-soft);
     filter: drop-shadow(0 0 4px var(--dtp-accent-glow));
   }
 
-  .dtp-main-display {
-    position: relative;
-    width: 100%;
-    height: 8rem;
-    background: var(--dtp-osc-bg);
-    border: 1px solid var(--dtp-border-soft);
-    box-shadow: inset 0 0 3rem rgb(0 0 0 / 100%), 0 2px 2.5px rgb(0 0 0 / 75%);
-;
-    overflow: hidden;
-    
-  }
+.dtp-main-display {
+  position: relative;
+  width: 100%;
+  height: 8rem;
+  background-color: rgb(5, 5, 5); 
+  border: 1px solid var(--dtp-border-soft);
+  box-shadow: inset 0 0 6rem rgb(0 0 0 / 100%), inset 0 0 calc(var(--dtp-waveform-glow-intensity, var(--dtp-glow-intensity)) * 66px) rgb(255 170 82 / calc(var(--dtp-glow-intensity) * 1)), 0 2px 2.5px rgb(0 0 0 / 75%);
+  overflow: hidden;
 
-  .dtp-main-display::after {
-    content: "";
-    position: absolute;
-    inset: 0;
-    pointer-events: none;
-    background: 
-      linear-gradient(90deg, rgb(244 190 148 / 4%) 0 1px, transparent 1px 100%),
-      linear-gradient(0deg, rgb(244 190 148 / 4%) 0 1px, transparent 1px 100%);
-    background-size: 1rem 1rem;
-    mix-blend-mode: screen;
-  }
+  transition: background-color 3000ms ease, box-shadow 50ms ease, border-color 50ms ease;
+}
+
+.dtp-main-display.dtp-active-bg {
+  background-color: var(--dtp-osc-bg);
+}
+
+.dtp-main-display::after {
+  content: "";
+  position: absolute;
+  inset: 0;
+  pointer-events: none;
+  background: 
+    linear-gradient(90deg, rgb(244 190 148 / 4%) 0 1px, transparent 1px 100%),
+    linear-gradient(0deg, rgb(244 190 148 / 4%) 0 1px, transparent 1px 100%);
+  background-size: 1rem 1rem;
+  mix-blend-mode: screen;
+  z-index: 1;
+}
+
+.dtp-oscilloscope {
+  position: absolute;
+  inset: 0;
+  width: 100%;
+  height: 100%;
+  display: block;
+  z-index: 2;
+}
 
   .dtp-status {
     position: absolute;
@@ -127,18 +141,11 @@ fill: var(--dtp-text-soft);
     letter-spacing: 0.1em;
     color: var(--dtp-text-soft);
     background: rgba(0,0,0,0.5);
+    
     padding: 0.2rem 0.4rem;
     border: 1px solid var(--dtp-border-soft);
   }
 
-  .dtp-oscilloscope {
-    position: absolute;
-    inset: 0;
-    width: 100%;
-    height: 100%;
-    display: block;
-    z-index: 1;
-  }
 
   .dtp-overlay-text {
     position: absolute;
@@ -473,6 +480,7 @@ cursor: var(--dtp-custom-cursor) !important;    transition: background 150ms eas
   ];
 
   var root = document.querySelector(".dysphoria-telemetry-player");
+  var mainDisplayEl = root.querySelector(".dtp-main-display");
   if (!root) return;
 
   var uiTitle = root.querySelector(".dtp-track-name");
@@ -572,26 +580,45 @@ cursor: var(--dtp-custom-cursor) !important;    transition: background 150ms eas
     canvas.height = rect.height * (window.devicePixelRatio || 1);
   }
 
-  function renderFrame() {
-    animationId = requestAnimationFrame(renderFrame);
-    if (!analyser) return;
+function renderFrame() {
+  animationId = requestAnimationFrame(renderFrame);
+  if (!analyser) return;
 
-    analyser.getByteTimeDomainData(dataArray);
-    analyser.getByteFrequencyData(freqDataArray);
+  analyser.getByteTimeDomainData(dataArray);
+  analyser.getByteFrequencyData(freqDataArray);
 
-    ctx.fillStyle = cOscBg;
-    ctx.fillRect(0, 0, canvas.width, canvas.height);
+  ctx.clearRect(0, 0, canvas.width, canvas.height);
+
+  ctx.strokeStyle = "rgb(244 190 148 / 4%)";
+  ctx.lineWidth = 1;
+  
+  var gridSize = 16;
+    
+    for (var x = 0; x < canvas.width; x += gridSize) {
+      ctx.beginPath();
+      ctx.moveTo(x, 0);
+      ctx.lineTo(x, canvas.height);
+      ctx.stroke();
+    }
+    
+    for (var y = 0; y < canvas.width; y += gridSize) {
+      ctx.beginPath();
+      ctx.moveTo(0, y);
+      ctx.lineTo(canvas.width, y);
+      ctx.stroke();
+    }
+
     ctx.lineWidth = 2 * (window.devicePixelRatio || 1);
     ctx.strokeStyle = cOscColor;
     ctx.beginPath();
     var sliceWidth = canvas.width * 1.0 / dataArray.length;
-    var x = 0;
+    var waveX = 0;
     for (var i = 0; i < dataArray.length; i++) {
       var v = dataArray[i] / 128.0;
-      var y = v * (canvas.height / 2);
-      if (i === 0) ctx.moveTo(x, y);
-      else ctx.lineTo(x, y);
-      x += sliceWidth;
+      var waveY = v * (canvas.height / 2);
+      if (i === 0) ctx.moveTo(waveX, waveY);
+      else ctx.lineTo(waveX, waveY);
+      waveX += sliceWidth;
     }
     ctx.lineTo(canvas.width, canvas.height / 2);
     ctx.stroke();
@@ -604,7 +631,6 @@ cursor: var(--dtp-custom-cursor) !important;    transition: background 150ms eas
     var bassAvg = bassSum / actualBins / 255.0;
     root.style.setProperty('--dtp-glow-intensity', bassAvg.toFixed(3));
   }
-
   function clamp(v, min, max) { return Math.max(min, Math.min(max, v)); }
 
   function hashString(value) {
@@ -1029,19 +1055,20 @@ function renderTracklist() {
     btn.addEventListener("mouseleave", function() { uiStatus.textContent = isPlaying ? "SYS.ACTIVE" : "SYS.IDLE"; });
   });
 
-  audio.addEventListener("play", function() {
-    isPlaying = true;
-    root.classList.add("dtp-playing");
-    uiStatus.textContent = "SYS.ACTIVE";
-    updateHighlight();
-  });
-
-  audio.addEventListener("pause", function() {
-    isPlaying = false;
-    root.classList.remove("dtp-playing");
-    uiStatus.textContent = "SYS.PAUSED";
-    updateHighlight();
-  });
+audio.addEventListener("play", function() {
+  isPlaying = true;
+  root.classList.add("dtp-playing");
+  if (mainDisplayEl) mainDisplayEl.classList.add("dtp-active-bg"); // Trigger fade-in
+  uiStatus.textContent = "SYS.ACTIVE";
+  updateHighlight();
+});
+audio.addEventListener("pause", function() {
+  isPlaying = false;
+  root.classList.remove("dtp-playing");
+  if (mainDisplayEl) mainDisplayEl.classList.remove("dtp-active-bg"); // Trigger fade-out
+  uiStatus.textContent = "SYS.PAUSED";
+  updateHighlight();
+});
 
   audio.addEventListener("timeupdate", function() {
     uiTimeCur.textContent = formatTime(audio.currentTime);
