@@ -112,16 +112,19 @@
     pointer-events: none;
   }
 
-  .dtp-track-name {
-    font-size: 0.85rem;
-    color: var(--dtp-text);
-    text-shadow: 1px 1px 0 rgb(0 0 0), 0 0 5px rgb(0 0 0);
-    white-space: nowrap;
-    overflow: hidden;
-    text-overflow: ellipsis;
-    max-width: 70%;
-  }
+.dtp-track-name {
+  font-size: 0.85rem;
+  color: var(--dtp-text);
+  text-shadow: 1px 1px 0 rgb(0 0 0), 0 0 5px rgb(0 0 0);
+  white-space: nowrap;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  max-width: 70%;
+}
 
+.dtp-track-name::before {
+  content: "Ms. Dysphoria - ";
+}
   .dtp-time-data {
     font-size: 0.65rem;
     color: var(--dtp-accent);
@@ -285,7 +288,7 @@
 
   .dtp-track-item {
     display: grid;
-    grid-template-columns: 1fr 1fr 1fr auto;
+    grid-template-columns: 1fr 0.7fr 0.75fr auto;
     align-items: center;
     gap: 0.5rem;
     padding: 0.5rem;
@@ -326,7 +329,7 @@
 
 <div class="dysphoria-telemetry-player">
   <div class="dtp-header">
-    <div class="dtp-title">Audio Archive [WIP]</div>
+    <div class="dtp-title">Track Archive</div>
     <div class="dtp-status">SYS.IDLE</div>
   </div>
 
@@ -1006,8 +1009,6 @@
       var isActive = (idx === currentIndex);
       item.classList.toggle("dtp-active", isActive);
       var stat = item.querySelector(".dtp-track-status");
-      if (isActive) stat.textContent = isPlaying ? "[>>]" : "[||]";
-      else stat.textContent = "";
     });
   }
 
