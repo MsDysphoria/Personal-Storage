@@ -1,0 +1,1052 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>Telemetry Player</title>
+<style>
+  body {
+    background: #0a0a0a;
+    margin: 0;
+    padding: 2rem;
+    font-family: monospace;
+  }
+
+  .dysphoria-telemetry-player {
+    --dtp-bg: rgb(13 13 13 / 85%);
+    --dtp-border: rgb(120 88 49 / 68%);
+    --dtp-border-soft: rgb(120 88 49 / 34%);
+    --dtp-text: rgb(196 181 169 / 86%);
+    --dtp-text-soft: rgb(155 143 137 / 68%);
+    --dtp-accent: rgb(244 190 148 / 86%);
+    --dtp-accent-glow: rgb(159 71 17 / 55%);
+    --dtp-hover: rgb(61 13 13 / 42%);
+    --dtp-active: rgb(120 88 49 / 22%);
+    --dtp-waveform-played: rgba(222, 104, 18, 0.88);
+    --dtp-waveform-unplayed: rgba(218, 210, 202, 0.40);
+    --dtp-waveform-center: rgba(218, 210, 202, 0.13);
+    --dtp-waveform-cursor: rgba(255, 190, 91, 0.76);
+
+    width: 100%;
+    max-width: 640px;
+    margin: 0 auto;
+    box-sizing: border-box;
+    padding: 0.8rem;
+    background: 
+      linear-gradient(135deg, rgb(24 19 16 / 90%), rgb(8 8 8 / 94%));
+    border: 1px solid var(--dtp-border);
+    box-shadow: 
+      inset 0 0 1.2rem rgb(0 0 0 / 50%),
+      0 0.5rem 1rem rgb(0 0 0 / 30%);
+    font-family: monospace;
+    color: var(--dtp-text);
+    display: grid;
+    gap: 0.6rem;
+    user-select: none;
+  }
+
+  .dysphoria-telemetry-player * { box-sizing: border-box; }
+
+  .dtp-header {
+    display: flex;
+    justify-content: space-between;
+    align-items: flex-end;
+    border-bottom: 1px solid var(--dtp-border-soft);
+    padding-bottom: 0.3rem;
+  }
+
+  .dtp-title {
+    font-size: 0.75rem;
+    letter-spacing: 0.15em;
+    text-transform: uppercase;
+    color: var(--dtp-accent);
+    text-shadow: 0 0 8px var(--dtp-accent-glow);
+  }
+
+  .dtp-status {
+    font-size: 0.6rem;
+    letter-spacing: 0.1em;
+    color: var(--dtp-text-soft);
+  }
+
+  .dtp-main-display {
+    position: relative;
+    width: 100%;
+    height: 8rem;
+    background: rgb(5 5 5);
+    border: 1px solid var(--dtp-border-soft);
+    box-shadow: inset 0 0 2rem rgb(0 0 0 / 80%);
+    overflow: hidden;
+  }
+
+  .dtp-main-display::after {
+    content: "";
+    position: absolute;
+    inset: 0;
+    pointer-events: none;
+    background: 
+      linear-gradient(90deg, rgb(244 190 148 / 4%) 0 1px, transparent 1px 100%),
+      linear-gradient(0deg, rgb(244 190 148 / 4%) 0 1px, transparent 1px 100%);
+    background-size: 1rem 1rem;
+    mix-blend-mode: screen;
+  }
+
+  .dtp-oscilloscope {
+    position: absolute;
+    inset: 0;
+    width: 100%;
+    height: 100%;
+    display: block;
+    z-index: 1;
+  }
+
+  .dtp-overlay-text {
+    position: absolute;
+    bottom: 0.5rem;
+    left: 0.5rem;
+    right: 0.5rem;
+    display: flex;
+    justify-content: space-between;
+    align-items: flex-end;
+    z-index: 2;
+    pointer-events: none;
+  }
+
+  .dtp-track-name {
+    font-size: 0.85rem;
+    color: var(--dtp-text);
+    text-shadow: 1px 1px 0 rgb(0 0 0), 0 0 5px rgb(0 0 0);
+    white-space: nowrap;
+    overflow: hidden;
+    text-overflow: ellipsis;
+    max-width: 70%;
+  }
+
+  .dtp-time-data {
+    font-size: 0.65rem;
+    color: var(--dtp-accent);
+    text-shadow: 1px 1px 0 rgb(0 0 0);
+  }
+
+  .dtp-waveform-panel {
+    width: 100%;
+    height: 3.6rem;
+    background: rgb(0 0 0 / 40%);
+    border: 1px solid var(--dtp-border-soft);
+    position: relative;
+    overflow: hidden;
+    cursor: pointer;
+  }
+
+  .dtp-waveform-wrap {
+    width: 100%;
+    height: 100%;
+    position: relative;
+    touch-action: none;
+  }
+
+  .dtp-waveform {
+    display: block;
+    width: 100%;
+    height: 100%;
+    pointer-events: none;
+  }
+
+  .dtp-waveform-hover-time {
+    position: absolute;
+    top: 0.15rem;
+    left: 0;
+    z-index: 3;
+    padding: 0.06rem 0.28rem;
+    background: rgb(0 0 0 / 42%);
+    border: 1px solid rgb(218 178 136 / 22%);
+    color: rgb(245 229 211 / 86%);
+    font-size: 0.61rem;
+    letter-spacing: 0.03em;
+    font-variant-numeric: tabular-nums;
+    opacity: 0;
+    transform: translateX(-50%) translateY(-0.22rem);
+    transition: opacity 120ms ease, transform 120ms ease;
+    pointer-events: none;
+  }
+
+  .dtp-waveform-wrap.dtp-hovering .dtp-waveform-hover-time {
+    opacity: 0.95;
+    transform: translateX(-50%) translateY(0);
+  }
+
+  .dtp-controls {
+    display: grid;
+    grid-template-columns: auto auto 1fr;
+    gap: 0.5rem;
+    align-items: center;
+  }
+
+  .dtp-btn {
+    height: 2rem;
+    background: linear-gradient(180deg, rgb(27 23 20), rgb(8 8 8));
+    border: 1px solid var(--dtp-border-soft);
+    color: var(--dtp-text-soft);
+    font-family: inherit;
+    font-size: 0.65rem;
+    letter-spacing: 0.1em;
+    cursor: pointer;
+    padding: 0 1rem;
+    transition: all 150ms ease;
+    box-shadow: 0 2px 4px rgb(0 0 0 / 50%);
+  }
+
+  .dtp-btn:hover {
+    border-color: var(--dtp-accent);
+    color: var(--dtp-accent);
+    background: var(--dtp-hover);
+    box-shadow: 0 0 10px var(--dtp-accent-glow);
+  }
+
+  .dtp-play-btn {
+    width: 3rem;
+    padding: 0;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+  }
+
+  .dtp-icon-play {
+    display: block;
+    width: 0;
+    height: 0;
+    border-top: 0.4rem solid transparent;
+    border-bottom: 0.4rem solid transparent;
+    border-left: 0.6rem solid var(--dtp-text-soft);
+    transform: translateX(2px);
+    transition: all 150ms ease;
+  }
+
+  .dtp-play-btn:hover .dtp-icon-play { border-left-color: var(--dtp-accent); }
+
+  .dtp-playing .dtp-icon-play {
+    width: 0.6rem;
+    height: 0.6rem;
+    border: none;
+    background: var(--dtp-accent);
+    transform: none;
+  }
+
+  .dtp-volume-wrap {
+    display: flex;
+    align-items: center;
+    justify-content: flex-end;
+    gap: 0.5rem;
+  }
+
+  .dtp-label {
+    font-size: 0.55rem;
+    color: var(--dtp-text-soft);
+  }
+
+  .dtp-slider {
+    width: 5rem;
+    height: 0.8rem;
+    appearance: none;
+    -webkit-appearance: none;
+    background: transparent;
+    cursor: pointer;
+  }
+
+  .dtp-slider::-webkit-slider-runnable-track {
+    height: 2px;
+    background: var(--dtp-border-soft);
+  }
+
+  .dtp-slider::-webkit-slider-thumb {
+    appearance: none;
+    width: 0.5rem;
+    height: 0.8rem;
+    background: var(--dtp-accent);
+    margin-top: -0.35rem;
+    border: 1px solid rgb(0 0 0);
+    box-shadow: 0 0 5px var(--dtp-accent-glow);
+  }
+
+  .dtp-tracklist-container {
+    height: 8rem;
+    overflow-y: auto;
+    border: 1px solid var(--dtp-border-soft);
+    background: rgb(8 8 8 / 65%);
+    scrollbar-width: thin;
+    scrollbar-color: var(--dtp-border-soft) rgb(8 8 8);
+  }
+
+  .dtp-tracklist {
+    list-style: none;
+    margin: 0;
+    padding: 0;
+  }
+
+  .dtp-track-item {
+    display: grid;
+    grid-template-columns: 1fr 1fr 1fr auto;
+    align-items: center;
+    gap: 0.5rem;
+    padding: 0.5rem;
+    font-size: 0.65rem;
+    border-bottom: 1px solid rgb(120 88 49 / 15%);
+    color: var(--dtp-text-soft);
+    cursor: pointer;
+    transition: background 150ms ease, color 150ms ease;
+  }
+
+  .dtp-track-item span {
+    overflow: hidden;
+    text-overflow: ellipsis;
+    white-space: nowrap;
+  }
+
+  .dtp-track-item:hover {
+    background: var(--dtp-hover);
+    color: var(--dtp-text);
+  }
+
+  .dtp-track-item.dtp-active {
+    background: var(--dtp-active);
+    color: var(--dtp-accent);
+    border-left: 2px solid var(--dtp-accent);
+  }
+
+  .dtp-track-album, .dtp-track-genre { color: var(--dtp-text-soft); }
+  .dtp-track-length { font-family: monospace; color: var(--dtp-accent); }
+
+  .dtp-track-status {
+    text-align: right;
+    color: var(--dtp-accent);
+  }
+</style>
+</head>
+<body>
+
+<div class="dysphoria-telemetry-player">
+  <div class="dtp-header">
+    <div class="dtp-title">Audio Archive [WIP]</div>
+    <div class="dtp-status">SYS.IDLE</div>
+  </div>
+
+  <div class="dtp-main-display">
+    <canvas class="dtp-oscilloscope"></canvas>
+    <div class="dtp-overlay-text">
+      <div class="dtp-track-name">Awaiting Input...</div>
+      <div class="dtp-time-data">
+        <span class="dtp-time-current">00:00</span> // <span class="dtp-time-total">--:--</span>
+      </div>
+    </div>
+  </div>
+
+  <div class="dtp-waveform-panel">
+    <div class="dtp-waveform-wrap" aria-label="Timeline" role="slider" tabindex="0" aria-valuemin="0" aria-valuemax="100" aria-valuenow="0">
+      <canvas class="dtp-waveform"></canvas>
+      <div class="dtp-waveform-hover-time">0:00</div>
+    </div>
+  </div>
+
+  <div class="dtp-controls">
+    <button class="dtp-btn dtp-play-btn" type="button">
+      <span class="dtp-icon-play"></span>
+    </button>
+    <button class="dtp-btn dtp-scan-btn" type="button">
+      [ RANDOM ]
+    </button>
+    <div class="dtp-volume-wrap">
+      <div class="dtp-label">VOL</div>
+      <input class="dtp-slider dtp-volume" type="range" min="0" max="1" step="0.01" value="0.75">
+    </div>
+  </div>
+
+  <div class="dtp-tracklist-container">
+    <ul class="dtp-tracklist"></ul>
+  </div>
+</div>
+
+<script>
+(function () {
+  if (window.__dsTelemetryLoaded) return;
+  window.__dsTelemetryLoaded = true;
+
+
+  var trackDatabase = [
+    {
+      title: "Heart",
+      url: "https://msdysphoria.github.io/Personal-Storage/Sound FX/Heart by Ms. Dysphoria.ogg",
+      album: "Test",
+      genre: "Ambient",
+      length: "0:13",
+      waveform: "https://msdysphoria.github.io/Personal-Storage/Sound FX/Heart by Ms. Dysphoria.json"
+    },
+    {
+      title: "Chain",
+      url: "https://msdysphoria.github.io/Personal-Storage/Sound FX/Chain by Ms. Dysphoria.ogg",
+      album: "Test",
+      genre: "Ambient",
+      length: "0:30",
+      waveform: "https://msdysphoria.github.io/Personal-Storage/Sound FX/Chain by Ms. Dysphoria.json"
+    }
+  ];
+
+  var root = document.querySelector(".dysphoria-telemetry-player");
+  if (!root) return;
+
+  var uiTitle = root.querySelector(".dtp-track-name");
+  var uiStatus = root.querySelector(".dtp-status");
+  var uiTimeCur = root.querySelector(".dtp-time-current");
+  var uiTimeTot = root.querySelector(".dtp-time-total");
+  var tracklistEl = root.querySelector(".dtp-tracklist");
+  var playBtn = root.querySelector(".dtp-play-btn");
+  var scanBtn = root.querySelector(".dtp-scan-btn");
+  var volSlider = root.querySelector(".dtp-volume");
+  var canvas = root.querySelector(".dtp-oscilloscope");
+  var ctx = canvas.getContext("2d");
+
+  var waveformPanel = root.querySelector(".dtp-waveform-panel");
+  var waveformWrap = root.querySelector(".dtp-waveform-wrap");
+  var waveformCanvas = root.querySelector(".dtp-waveform");
+  var waveformCtx = waveformCanvas ? waveformCanvas.getContext("2d") : null;
+  var hoverTimeEl = root.querySelector(".dtp-waveform-hover-time");
+
+  var audio = new Audio();
+  audio.crossOrigin = "anonymous";
+  var audioCtx = null;
+  var analyser = null;
+  var source = null;
+  var dataArray = null;
+  var animationId = null;
+
+  var currentIndex = -1;
+  var isPlaying = false;
+
+  var waveformValues = [];
+  var waveformReady = false;
+  var waveformSourceReady = false;
+  var waveformSourceLoading = false;
+  var waveformSourceFailed = false;
+  var waveformHoverRatio = 0;
+  var isPointerDown = false;
+  var pendingSeekRatio = null;
+  var waveformCache = { base: null, played: null, key: "" };
+  var waveformDataVersion = 0;
+  var waveformDrawPending = false;
+
+  var TARGET_BARS = 180;
+  var WAVEFORM_MIN = 0.08;
+  var WAVEFORM_MAX = 0.92;
+  var WAVEFORM_POWER = 0.72;
+  var WAVEFORM_GAIN = 1;
+
+  function initAudioContext() {
+    if (audioCtx) return;
+    var AudioContext = window.AudioContext || window.webkitAudioContext;
+    audioCtx = new AudioContext();
+    analyser = audioCtx.createAnalyser();
+    analyser.fftSize = 2048;
+    var bufferLength = analyser.frequencyBinCount;
+    dataArray = new Uint8Array(bufferLength);
+
+    source = audioCtx.createMediaElementSource(audio);
+    source.connect(analyser);
+    analyser.connect(audioCtx.destination);
+
+    resizeCanvas();
+    drawOscilloscope();
+  }
+
+  function formatTime(secs) {
+    if (!secs || isNaN(secs)) return "00:00";
+    var m = Math.floor(secs / 60);
+    var s = Math.floor(secs % 60);
+    return (m < 10 ? "0" : "") + m + ":" + (s < 10 ? "0" : "") + s;
+  }
+
+  function parseTimeToSeconds(str) {
+    if (!str) return 0;
+    var parts = str.split(":");
+    if (parts.length === 2) {
+      return parseInt(parts[0], 10) * 60 + parseInt(parts[1], 10);
+    }
+    return 0;
+  }
+
+  function resizeCanvas() {
+    var rect = canvas.getBoundingClientRect();
+    canvas.width = rect.width * (window.devicePixelRatio || 1);
+    canvas.height = rect.height * (window.devicePixelRatio || 1);
+  }
+
+  function drawOscilloscope() {
+    animationId = requestAnimationFrame(drawOscilloscope);
+    if (!analyser) return;
+
+    analyser.getByteTimeDomainData(dataArray);
+
+    ctx.fillStyle = "rgba(5, 5, 5, 0.4)";
+    ctx.fillRect(0, 0, canvas.width, canvas.height);
+
+    ctx.lineWidth = 2 * (window.devicePixelRatio || 1);
+    ctx.strokeStyle = "rgb(244, 190, 148)";
+    ctx.shadowBlur = 8;
+    ctx.shadowColor = "rgb(159, 71, 17)";
+
+    ctx.beginPath();
+    var sliceWidth = canvas.width * 1.0 / dataArray.length;
+    var x = 0;
+
+    for (var i = 0; i < dataArray.length; i++) {
+      var v = dataArray[i] / 128.0;
+      var y = v * (canvas.height / 2);
+      if (i === 0) ctx.moveTo(x, y);
+      else ctx.lineTo(x, y);
+      x += sliceWidth;
+    }
+
+    ctx.lineTo(canvas.width, canvas.height / 2);
+    ctx.stroke();
+  }
+
+
+  function clamp(v, min, max) { return Math.max(min, Math.min(max, v)); }
+
+  function hashString(value) {
+    var hash = 2166136261;
+    for (var i = 0; i < value.length; i++) {
+      hash ^= value.charCodeAt(i);
+      hash += (hash << 1) + (hash << 4) + (hash << 7) + (hash << 8) + (hash << 24);
+    }
+    return hash >>> 0;
+  }
+
+  function seededRandom(seed) {
+    seed |= 0;
+    seed = (seed + 0x6d2b79f5) | 0;
+    var t = Math.imul(seed ^ (seed >>> 15), 1 | seed);
+    t = (t + Math.imul(t ^ (t >>> 7), 61 | t)) ^ t;
+    return ((t ^ (t >>> 14)) >>> 0) / 4294967296;
+  }
+
+  function resampleValues(values, targetCount) {
+    if (!values.length || values.length === targetCount) return values.slice(0);
+    var output = [];
+    for (var i = 0; i < targetCount; i++) {
+      var position = targetCount === 1 ? 0 : i / (targetCount - 1);
+      var sourcePosition = position * (values.length - 1);
+      var left = Math.floor(sourcePosition);
+      var right = Math.min(values.length - 1, left + 1);
+      var t = sourcePosition - left;
+      output.push(values[left] + (values[right] - values[left]) * t);
+    }
+    return output;
+  }
+
+  function extractWaveformPayload(input) {
+    var payload = { values: null, mode: "" };
+    if (!input) return payload;
+    if (Array.isArray(input)) { payload.values = input; return payload; }
+    if (typeof input === "object") {
+      if (input.waveform) {
+        if (Array.isArray(input.waveform)) {
+          payload.values = input.waveform;
+          payload.mode = String(input.valuesMode || input.mode || "").trim();
+          return payload;
+        }
+        if (typeof input.waveform === "object" && Array.isArray(input.waveform.values)) {
+          payload.values = input.waveform.values;
+          payload.mode = String(input.waveform.valuesMode || input.waveform.mode || input.valuesMode || input.mode || "").trim();
+          return payload;
+        }
+      }
+      if (Array.isArray(input.values)) {
+        payload.values = input.values;
+        payload.mode = String(input.valuesMode || input.mode || "").trim();
+        return payload;
+      }
+      return payload;
+    }
+    if (typeof input === "string") {
+      try {
+        return extractWaveformPayload(JSON.parse(input));
+      } catch (e) {}
+      payload.values = input.split(",").map(function(p){ return parseFloat(p.trim()); });
+      return payload;
+    }
+    return payload;
+  }
+
+  function generateSilentWaveform() {
+    waveformValues = [];
+    for (var i = 0; i < TARGET_BARS; i++) waveformValues.push(WAVEFORM_MIN);
+    markWaveformChanged();
+  }
+
+  function generateBaseWaveform() {
+    var seed = hashString(currentIndex >= 0 ? trackDatabase[currentIndex].title : "dysphoria-audio");
+    waveformValues = [];
+    for (var i = 0; i < TARGET_BARS; i++) {
+      var position = i / Math.max(1, TARGET_BARS - 1);
+      var n1 = seededRandom(seed + i * 17);
+      var n2 = seededRandom(seed + i * 47);
+      var n3 = seededRandom(seed + i * 101);
+      var envelope = 0.58 + Math.sin(position * Math.PI * 2.0) * 0.1 + Math.sin(position * Math.PI * 6.0) * 0.08;
+      var value = (n1 * 0.52 + n2 * 0.32 + n3 * 0.16) * envelope;
+      value = clamp(value, 0, 1);
+      value = WAVEFORM_MIN + (WAVEFORM_MAX - WAVEFORM_MIN) * value;
+      waveformValues.push(value);
+    }
+    markWaveformChanged();
+  }
+
+  function mapWaveformRawValue(rawValue, maxRaw) {
+    var normalized = maxRaw > 0 ? rawValue / maxRaw : rawValue;
+    normalized = Math.pow(clamp(normalized * WAVEFORM_GAIN, 0, 1), WAVEFORM_POWER);
+    return WAVEFORM_MIN + (WAVEFORM_MAX - WAVEFORM_MIN) * normalized;
+  }
+
+  function markWaveformChanged() {
+    waveformDataVersion++;
+    waveformCache.key = "";
+  }
+
+  function resizeWaveformCanvas() {
+    if (!waveformCanvas) return false;
+    var rect = waveformCanvas.getBoundingClientRect();
+    var ratio = window.devicePixelRatio || 1;
+    var w = Math.max(1, Math.round(rect.width * ratio));
+    var h = Math.max(1, Math.round(rect.height * ratio));
+    if (waveformCanvas.width !== w || waveformCanvas.height !== h) {
+      waveformCanvas.width = w;
+      waveformCanvas.height = h;
+      waveformCache.key = "";
+      return true;
+    }
+    return false;
+  }
+
+  function makeRenderCanvas(width, height, pixelRatio) {
+    var c = document.createElement("canvas");
+    c.width = Math.max(1, Math.round(width * pixelRatio));
+    c.height = Math.max(1, Math.round(height * pixelRatio));
+    return c;
+  }
+
+  function roundedRect(ctx, x, y, width, height, radius) {
+    radius = Math.min(radius, width * 0.5, height * 0.5);
+    ctx.beginPath();
+    ctx.moveTo(x + radius, y);
+    ctx.lineTo(x + width - radius, y);
+    ctx.quadraticCurveTo(x + width, y, x + width, y + radius);
+    ctx.lineTo(x + width, y + height - radius);
+    ctx.quadraticCurveTo(x + width, y + height, x + width - radius, y + height);
+    ctx.lineTo(x + radius, y + height);
+    ctx.quadraticCurveTo(x, y + height, x, y + height - radius);
+    ctx.lineTo(x, y + radius);
+    ctx.quadraticCurveTo(x, y, x + radius, y);
+    ctx.closePath();
+  }
+
+  function drawBarsToContext(ctx, width, height, pixelRatio, color, includeCenter) {
+    var bars = waveformValues.length;
+    var barWidthRatio = 0.58;
+    var autoSlotWidth = width / Math.max(1, bars);
+    var barWidth = autoSlotWidth * barWidthRatio;
+    var step = bars > 1 ? (width - barWidth) / (bars - 1) : 0;
+    var centerY = height * 0.5;
+    var radius = Math.max(0.5, barWidth * 0.48);
+    var barScale = 0.76;
+
+    if (includeCenter) {
+      ctx.fillStyle = "rgba(218, 210, 202, 0.13)";
+      ctx.fillRect(0, centerY, width, Math.max(1 / pixelRatio, 0.5));
+    }
+
+    ctx.fillStyle = color;
+    for (var i = 0; i < bars; i++) {
+      var x = bars > 1 ? i * step : 0;
+      if (i === bars - 1) x = width - barWidth;
+      var value = waveformValues[i] || 0;
+      var barHeight = Math.max(1.5, value * height * barScale);
+      var y = centerY - barHeight * 0.5;
+      roundedRect(ctx, x, y, barWidth, barHeight, radius);
+      ctx.fill();
+    }
+  }
+
+  function getWaveformCacheKey(width, height, pixelRatio) {
+    return [
+      Math.round(width * pixelRatio),
+      Math.round(height * pixelRatio),
+      pixelRatio,
+      waveformDataVersion,
+      TARGET_BARS
+    ].join("|");
+  }
+
+  function ensureWaveformCache(width, height, pixelRatio) {
+    var key = getWaveformCacheKey(width, height, pixelRatio);
+    if (waveformCache.key === key && waveformCache.base && waveformCache.played) return waveformCache;
+
+    var baseCanvas = makeRenderCanvas(width, height, pixelRatio);
+    var playedCanvas = makeRenderCanvas(width, height, pixelRatio);
+    var baseContext = baseCanvas.getContext("2d");
+    var playedContext = playedCanvas.getContext("2d");
+
+    baseContext.setTransform(pixelRatio, 0, 0, pixelRatio, 0, 0);
+    playedContext.setTransform(pixelRatio, 0, 0, pixelRatio, 0, 0);
+    baseContext.clearRect(0, 0, width, height);
+    playedContext.clearRect(0, 0, width, height);
+
+    drawBarsToContext(baseContext, width, height, pixelRatio, "rgba(218, 210, 202, 0.40)", true);
+    drawBarsToContext(playedContext, width, height, pixelRatio, "rgba(255, 104, 18, 0.88)", false);
+
+    waveformCache.base = baseCanvas;
+    waveformCache.played = playedCanvas;
+    waveformCache.key = key;
+    return waveformCache;
+  }
+
+  function getProgressRatio() {
+    if (audio.duration && audio.duration > 0) {
+      return clamp((audio.currentTime || 0) / audio.duration, 0, 1);
+    }
+    return clamp(pendingSeekRatio || 0, 0, 1);
+  }
+
+  function drawWaveform(force) {
+    if (!waveformCtx || !waveformValues.length) return;
+    resizeWaveformCanvas();
+
+    var ctx = waveformCtx;
+    var pixelRatio = window.devicePixelRatio || 1;
+    var width = Math.max(1, waveformCanvas.width / pixelRatio);
+    var height = Math.max(1, waveformCanvas.height / pixelRatio);
+    var progressRatio = getProgressRatio();
+    var playedX = width * progressRatio;
+
+    if (waveformWrap) {
+      waveformWrap.setAttribute("aria-valuenow", String(Math.round(progressRatio * 100)));
+    }
+
+    ctx.setTransform(pixelRatio, 0, 0, pixelRatio, 0, 0);
+    ctx.clearRect(0, 0, width, height);
+
+    var cache = ensureWaveformCache(width, height, pixelRatio);
+    ctx.drawImage(cache.base, 0, 0, width, height);
+
+    if (playedX > 0) {
+      ctx.save();
+      ctx.beginPath();
+      ctx.rect(0, 0, playedX, height);
+      ctx.clip();
+      ctx.drawImage(cache.played, 0, 0, width, height);
+      ctx.restore();
+    }
+
+    var cursorColor = "rgba(255, 190, 91, 0.76)";
+    var cursorYScale = 0.76;
+    var centerY = height * 0.5;
+    var cursorHeight = height * cursorYScale;
+    var cursorY = centerY - cursorHeight * 0.5;
+    ctx.fillStyle = cursorColor;
+    ctx.fillRect(playedX, cursorY, Math.max(1 / pixelRatio, 0.75), cursorHeight);
+  }
+
+  function requestWaveformDraw(force) {
+    if (waveformDrawPending) return;
+    waveformDrawPending = true;
+    requestAnimationFrame(function() {
+      waveformDrawPending = false;
+      drawWaveform(force);
+    });
+  }
+
+  function applyPrecomputedWaveformValues(input) {
+    var payload = extractWaveformPayload(input);
+    var parsedValues = payload.values;
+    if (!parsedValues || !parsedValues.length) return false;
+
+    var numericValues = parsedValues.map(function(v){ return parseFloat(v); }).filter(function(v){ return Number.isFinite(v); });
+    if (!numericValues.length) return false;
+
+    numericValues = resampleValues(numericValues, TARGET_BARS);
+
+    var mode = (payload.mode || "height").toLowerCase();
+    waveformValues = numericValues.map(function(value) {
+      if (mode === "normalized") {
+        var normalized = Math.pow(clamp(value * WAVEFORM_GAIN, 0, 1), WAVEFORM_POWER);
+        return WAVEFORM_MIN + (WAVEFORM_MAX - WAVEFORM_MIN) * normalized;
+      }
+      return clamp(value, 0.001, 2);
+    });
+
+    waveformSourceReady = true;
+    waveformSourceLoading = false;
+    waveformSourceFailed = false;
+    markWaveformChanged();
+    requestWaveformDraw(true);
+    return true;
+  }
+
+  function fetchWaveformJson(url) {
+    if (!window.__dtpWaveformCache) window.__dtpWaveformCache = {};
+    var cacheKey = "force-cache|" + url;
+    if (!window.__dtpWaveformCache[cacheKey]) {
+      window.__dtpWaveformCache[cacheKey] = fetch(url, { mode: "cors", cache: "force-cache" })
+        .then(function(r){ if (!r.ok) throw new Error("Waveform JSON failed."); return r.json(); })
+        .catch(function(e){ delete window.__dtpWaveformCache[cacheKey]; throw e; });
+    }
+    return window.__dtpWaveformCache[cacheKey];
+  }
+
+  function loadWaveformForTrack(index) {
+    waveformSourceReady = false;
+    waveformSourceLoading = false;
+    waveformSourceFailed = false;
+    generateSilentWaveform();
+    requestWaveformDraw(true);
+
+    var track = trackDatabase[index];
+    if (!track || !track.waveform) {
+      generateBaseWaveform();
+      requestWaveformDraw(true);
+      return;
+    }
+
+    waveformSourceLoading = true;
+    fetchWaveformJson(track.waveform)
+      .then(function(json) {
+        if (!applyPrecomputedWaveformValues(json)) {
+          throw new Error("Invalid waveform JSON.");
+        }
+      })
+      .catch(function() {
+        waveformSourceLoading = false;
+        waveformSourceFailed = true;
+        generateBaseWaveform();
+        requestWaveformDraw(true);
+      });
+  }
+
+
+  function seekToRatio(ratio) {
+    ratio = clamp(ratio, 0, 1);
+    if (audio.duration && audio.duration > 0) {
+      audio.currentTime = audio.duration * ratio;
+    } else {
+      pendingSeekRatio = ratio;
+    }
+    requestWaveformDraw(true);
+  }
+
+  function getPointerRatio(event) {
+    var rect = waveformWrap.getBoundingClientRect();
+    var x = event.clientX - rect.left;
+    return clamp(x / Math.max(1, rect.width), 0, 1);
+  }
+
+  function updateHoverTime(ratio, clientX) {
+    if (!hoverTimeEl || !waveformWrap) return;
+    var duration = (audio.duration && audio.duration > 0) ? audio.duration : parseTimeToSeconds(trackDatabase[currentIndex] ? trackDatabase[currentIndex].length : "0:00");
+    var rect = waveformWrap.getBoundingClientRect();
+    var x = clientX === undefined ? ratio * rect.width : clientX - rect.left;
+    var safeX = clamp(x, 24, Math.max(24, rect.width - 24));
+    hoverTimeEl.textContent = formatTime(duration * ratio);
+    hoverTimeEl.style.left = safeX + "px";
+  }
+
+
+  function renderTracklist() {
+    tracklistEl.innerHTML = "";
+    trackDatabase.forEach(function (track, index) {
+      var li = document.createElement("li");
+      li.className = "dtp-track-item";
+      li.innerHTML = ''
+        + '<span class="dtp-track-title">' + escapeHtml(track.title) + '</span>'
+        + '<span class="dtp-track-album">' + escapeHtml(track.album || "") + '</span>'
+        + '<span class="dtp-track-genre">' + escapeHtml(track.genre || "") + '</span>'
+        + '<span class="dtp-track-length">' + escapeHtml(track.length || "--:--") + '</span>'
+        + '<span class="dtp-track-status"></span>';
+      li.addEventListener("click", function() { loadTrack(index); });
+      tracklistEl.appendChild(li);
+    });
+  }
+
+  function escapeHtml(text) {
+    if (!text) return "";
+    var div = document.createElement("div");
+    div.textContent = text;
+    return div.innerHTML;
+  }
+
+  function updateHighlight() {
+    var items = tracklistEl.querySelectorAll(".dtp-track-item");
+    items.forEach(function(item, idx) {
+      var isActive = (idx === currentIndex);
+      item.classList.toggle("dtp-active", isActive);
+      var stat = item.querySelector(".dtp-track-status");
+      if (isActive) stat.textContent = isPlaying ? "[>>]" : "[||]";
+      else stat.textContent = "";
+    });
+  }
+
+  function loadTrack(index) {
+    if (!audioCtx) initAudioContext();
+    if (audioCtx.state === "suspended") audioCtx.resume();
+
+    if (currentIndex === index) {
+      if (isPlaying) audio.pause();
+      else audio.play();
+      return;
+    }
+
+    currentIndex = index;
+    var track = trackDatabase[index];
+
+    uiTitle.textContent = track.title;
+    uiStatus.textContent = "SYS.LOADING";
+    audio.src = track.url;
+    audio.play().catch(function(e){ console.log("Playback error:", e); });
+    loadWaveformForTrack(index);
+    updateHighlight();
+  }
+
+  function scanRandom() {
+    if (trackDatabase.length <= 1) return;
+    var newIdx = currentIndex;
+    while (newIdx === currentIndex || newIdx === -1) {
+      newIdx = Math.floor(Math.random() * trackDatabase.length);
+    }
+    loadTrack(newIdx);
+  }
+
+  audio.addEventListener("play", function() {
+    isPlaying = true;
+    root.classList.add("dtp-playing");
+    uiStatus.textContent = "SYS.ACTIVE";
+    updateHighlight();
+  });
+
+  audio.addEventListener("pause", function() {
+    isPlaying = false;
+    root.classList.remove("dtp-playing");
+    uiStatus.textContent = "SYS.PAUSED";
+    updateHighlight();
+  });
+
+  audio.addEventListener("timeupdate", function() {
+    uiTimeCur.textContent = formatTime(audio.currentTime);
+    requestWaveformDraw(false);
+  });
+
+  audio.addEventListener("loadedmetadata", function() {
+    uiTimeTot.textContent = formatTime(audio.duration);
+    if (pendingSeekRatio !== null) {
+      audio.currentTime = audio.duration * clamp(pendingSeekRatio, 0, 1);
+      pendingSeekRatio = null;
+    }
+  });
+
+  audio.addEventListener("ended", function() {
+    uiStatus.textContent = "SYS.IDLE";
+    scanRandom();
+  });
+
+  playBtn.addEventListener("click", function() {
+    if (currentIndex === -1) loadTrack(0);
+    else if (isPlaying) audio.pause();
+    else {
+      if (!audioCtx) initAudioContext();
+      if (audioCtx.state === "suspended") audioCtx.resume();
+      audio.play();
+    }
+  });
+
+  scanBtn.addEventListener("click", scanRandom);
+
+  volSlider.addEventListener("input", function() {
+    audio.volume = parseFloat(this.value);
+  });
+
+  if (waveformWrap) {
+    waveformWrap.addEventListener("pointerenter", function(event) {
+      waveformWrap.classList.add("dtp-hovering");
+      waveformHoverRatio = getPointerRatio(event);
+      updateHoverTime(waveformHoverRatio, event.clientX);
+    });
+
+    waveformWrap.addEventListener("pointermove", function(event) {
+      waveformHoverRatio = getPointerRatio(event);
+      updateHoverTime(waveformHoverRatio, event.clientX);
+      if (isPointerDown) seekToRatio(waveformHoverRatio);
+    });
+
+    waveformWrap.addEventListener("pointerleave", function() {
+      if (!isPointerDown) waveformWrap.classList.remove("dtp-hovering");
+    });
+
+    waveformWrap.addEventListener("pointerdown", function(event) {
+      isPointerDown = true;
+      waveformWrap.classList.add("dtp-hovering");
+      try { waveformWrap.setPointerCapture(event.pointerId); } catch(e) {}
+      waveformHoverRatio = getPointerRatio(event);
+      updateHoverTime(waveformHoverRatio, event.clientX);
+      seekToRatio(waveformHoverRatio);
+    });
+
+    waveformWrap.addEventListener("pointerup", function(event) {
+      isPointerDown = false;
+      try { waveformWrap.releasePointerCapture(event.pointerId); } catch(e) {}
+      requestWaveformDraw(true);
+    });
+
+    waveformWrap.addEventListener("pointercancel", function(event) {
+      isPointerDown = false;
+      waveformWrap.classList.remove("dtp-hovering");
+      try { waveformWrap.releasePointerCapture(event.pointerId); } catch(e) {}
+    });
+
+    waveformWrap.addEventListener("keydown", function(event) {
+      var key = event.key || event.code;
+      var seekSeconds = 5;
+      if (key === " " || key === "Space" || key === "Spacebar") {
+        event.preventDefault();
+        if (currentIndex === -1) loadTrack(0);
+        else if (isPlaying) audio.pause();
+        else audio.play();
+        return;
+      }
+      if (key === "ArrowLeft") {
+        event.preventDefault();
+        if (audio.duration) audio.currentTime = Math.max(0, audio.currentTime - seekSeconds);
+        else pendingSeekRatio = Math.max(0, getProgressRatio() - 0.02);
+        requestWaveformDraw(true);
+        return;
+      }
+      if (key === "ArrowRight") {
+        event.preventDefault();
+        if (audio.duration) audio.currentTime = Math.min(audio.duration, audio.currentTime + seekSeconds);
+        else pendingSeekRatio = Math.min(1, getProgressRatio() + 0.02);
+        requestWaveformDraw(true);
+        return;
+      }
+      if (key === "Home") { event.preventDefault(); seekToRatio(0); return; }
+      if (key === "End") { event.preventDefault(); seekToRatio(1); }
+    });
+  }
+
+  audio.volume = parseFloat(volSlider.value);
+  window.addEventListener("resize", function() {
+    resizeCanvas();
+    waveformCache.key = "";
+    requestWaveformDraw(true);
+  });
+  renderTracklist();
+  generateSilentWaveform();
+
+})();
+</script>
+
+</body>
+</html>
