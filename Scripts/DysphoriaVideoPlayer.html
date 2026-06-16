@@ -49,13 +49,13 @@
   data-waveform-width-scale="0.99"
   data-waveform-height="2.5rem"
   data-waveform-y-position="-0.32rem"
-  data-waveform-bar-height-scale="1"
+  data-waveform-bar-height-scale="0.8"
   data-waveform-bar-width-ratio="0.58"
   data-waveform-min-bar-height="0.004"
   data-waveform-max-bar-height="1"
   data-waveform-opacity="1"
   data-waveform-shadow="drop-shadow(0 0 2px rgba(0, 0, 0, 0.95)) drop-shadow(0 0 1px rgba(0, 0, 0, 0.75))"
-  data-waveform-played-color="rgba(160, 120, 70, 0.8)"
+  data-waveform-played-color="rgba(214, 140, 70, 0.9)"
   data-waveform-unplayed-color="rgba(218, 210, 202, 0.8)"
   data-waveform-center-color="rgba(218, 210, 202, 0.13)"
   data-waveform-cursor-color="rgba(255, 190, 91, 0.76)"
@@ -99,7 +99,7 @@
   data-audio-glow-envelope-threshold="0"
   data-audio-glow-envelope-power="1"
   data-audio-glow-envelope-volume-scale="true"
-  data-audio-glow-color="255 170 82"
+  data-audio-glow-color="222 170 82"
   data-audio-glow-height="0rem"
   data-audio-glow-strength="1"
   data-audio-glow-update-ms="50"
@@ -440,35 +440,7 @@
     border: 1px solid rgb(120 88 49 / 58%);
     background: rgb(0 0 0);
     box-shadow:
-      0 0 0 1px rgb(0 0 0 / 72%),
-      0 0
-        calc(
-          var(--dsv-outer-glow-size) +
-            (
-              var(--dsv-outer-glow-audio-level) *
-                var(--dsv-outer-glow-audio-size)
-            )
-        )
-        calc(
-          var(--dsv-outer-glow-spread) +
-            (
-              var(--dsv-outer-glow-audio-level) *
-                var(--dsv-outer-glow-audio-spread)
-            )
-        )
-        rgb(
-          var(--dsv-outer-glow-color) /
-            calc(
-              (
-                  var(--dsv-outer-glow-opacity) +
-                    (
-                      var(--dsv-outer-glow-audio-level) *
-                        var(--dsv-outer-glow-audio-opacity)
-                    )
-                ) *
-                var(--dsv-outer-glow-play-opacity)
-            )
-        );
+      0 0 0 1px rgb(0 0 0 / 72%);
     cursor: var(--dsv-pointer-cursor) !important;
     outline: none !important;
     transition:
@@ -1088,8 +1060,8 @@
     border: 1px solid rgb(120 88 49 / 42%);
     background: linear-gradient(
       90deg,
-      rgb(159 71 17 / 78%) 0%,
-      rgb(159 71 17 / 78%) var(--dsv-fill),
+      rgb(139 91 47 / 78%) 0%,
+      rgb(189 131 57 / 78%) var(--dsv-fill),
       rgb(12 10 9 / 68%) var(--dsv-fill),
       rgb(12 10 9 / 68%) 100%
     );
@@ -1101,10 +1073,10 @@
     appearance: none;
     width: 0.76rem;
     height: 0.76rem;
-    margin-top: calc((0.4rem - 0.76rem) / 2);
+    margin-top: calc((0.4rem - 0.8rem) / 2);
     border-radius: 999px;
     border: 1px solid rgb(244 190 148 / 48%);
-    background: rgb(199 95 31);
+    background: rgb(179 115 51);
     box-shadow:
       0 0 0 1px rgb(0 0 0 / 55%),
       0 0 8px rgb(159 71 17 / 40%);
